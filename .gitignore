@@ -1,3 +1,13 @@
+*.swp
+*.pyc
+__pycache__
+*.egg-info
+.DS_Store
+.venv
+.coverage
+.vagrant
+.bundle
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
