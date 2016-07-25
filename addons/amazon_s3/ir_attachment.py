@@ -12,6 +12,11 @@ import boto3
 _logger = logging.getLogger(__name__)
 
 
+S3_BUCKET = 'S3_BUCKET'
+AWS_ACCESS_KEY_ID= 'AWS_ACCESS_KEY_ID'
+AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
+
+
 class S3NotExistsError(Exception):
     pass
 
@@ -21,16 +26,28 @@ class ir_attachment(osv.osv):
     _inherit = 'ir.attachment'
 
     @property
-    def _s3_bucket(self):
-        return 'adaptiv-odoo'
+    def _s3_enabled(self):
+        return all(
+            (key in os.environ)
+            for key in
+            (S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+        )
 
     @property
+    def _s3_bucket(self):
+        return os.environ.get(S3_BUCKET)
+
+    __s3_client = None
+    @property
     def _s3_client(self):
-        return boto3.client(
-            's3',
-            aws_access_key_id=None,
-            aws_secret_access_key=None
-        )
+        if self.__s3_client is not None:
+            self.__s3_client = boto3.client(
+                's3',
+                aws_access_key_id=os.environ.get(AWS_ACCESS_KEY_ID),
+                aws_secret_access_key=os.environ.get(AWS_SECRET_ACCESS_KEY)
+            )
+        
+        return self.__s3_client
 
     def _data_get(self, cr, uid, ids, name, arg, context=None):
         if context is None:
@@ -56,20 +73,23 @@ class ir_attachment(osv.osv):
 
     def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=True):
         full_path = self._full_path(cr, uid, fname)
-        if not os.path.exists(full_path) and s3_exists:
+        if not os.path.exists(full_path) and s3_exists and self._s3_enabled:
             self._s3_get(cr, uid, fname)
         return super(ir_attachment, self)._file_read(cr, uid, fname, bin_size=bin_size)
 
     def _file_write(self, cr, uid, value, checksum):
         res = super(ir_attachment, self)._file_write(cr, uid, value, checksum)
-        self._s3_put(cr, uid, self.store_fname)
+        if self._s3_enabled:
+            self._s3_put(cr, uid, self.store_fname)
         return res
 
     def _file_delete(self, cr, uid, fname):
-        try:
-            self._s3_client.delete_object(Bucket=self._s3_bucket, Key=fname)
-        except Exception:
-            pass
+        if self._s3_enabled:
+            try:
+                self._s3_client.delete_object(Bucket=self._s3_bucket, Key=fname)
+            except Exception:
+                pass
+
         return super(ir_attachment, self)._file_delete(cr, uid, fname)
 
     def _s3_get(self, cr, uid, fname):

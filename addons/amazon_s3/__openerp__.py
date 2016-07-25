@@ -9,5 +9,5 @@
   'data': [
     'ir_attachment.xml'
   ],
-  'auto_install': False
+  'auto_install': True
 }
