@@ -38,9 +38,10 @@ class ir_attachment(osv.osv):
         return os.environ.get(S3_BUCKET)
 
     __s3_client = None
+
     @property
     def _s3_client(self):
-        if self.__s3_client is not None:
+        if self.__s3_client is None:
             self.__s3_client = boto3.client(
                 's3',
                 aws_access_key_id=os.environ.get(AWS_ACCESS_KEY_ID),
