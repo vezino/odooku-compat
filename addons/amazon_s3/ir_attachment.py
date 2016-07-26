@@ -46,7 +46,7 @@ class ir_attachment(osv.osv):
                 aws_access_key_id=os.environ.get(AWS_ACCESS_KEY_ID),
                 aws_secret_access_key=os.environ.get(AWS_SECRET_ACCESS_KEY)
             )
-        
+
         return self.__s3_client
 
     def _data_get(self, cr, uid, ids, name, arg, context=None):
@@ -67,7 +67,7 @@ class ir_attachment(osv.osv):
         return result
 
     def _data_set(self, cr, uid, id, name, value, arg, context=None):
-        res = super(ir_attachment, self)._data_set(cr, uid, ids, name, value, arg, context=None)
+        res = super(ir_attachment, self)._data_set(cr, uid, id, name, value, arg, context=None)
         self.write(cr, SUPERUSER_ID, [id], { 's3_exists': True }, context=context)
         return res
 
