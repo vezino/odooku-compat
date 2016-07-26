@@ -13,11 +13,11 @@ _logger = logging.getLogger(__name__)
 
 
 S3_BUCKET = 'S3_BUCKET'
-AWS_ACCESS_KEY_ID= 'AWS_ACCESS_KEY_ID'
+AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID'
 AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
 
 
-class S3NotExistsError(Exception):
+class S3Error(Exception):
     pass
 
 
@@ -59,7 +59,7 @@ class ir_attachment(osv.osv):
             if attach.store_fname:
                 try:
                     result[attach.id] = self._file_read(cr, uid, attach.store_fname, bin_size, attach.s3_exists)
-                except S3NotExistsError:
+                except S3Error:
                     # SUPERUSER_ID as probably don't have write access, trigger during create
                     self.write(cr, SUPERUSER_ID, [attach.id], { 's3_exists': False }, context=context)
                     result[attach.id] = ''
@@ -69,7 +69,14 @@ class ir_attachment(osv.osv):
 
     def _data_set(self, cr, uid, id, name, value, arg, context=None):
         res = super(ir_attachment, self)._data_set(cr, uid, id, name, value, arg, context=None)
-        self.write(cr, SUPERUSER_ID, [id], { 's3_exists': True }, context=context)
+        if self._s3_enabled:
+            attach = self.browse(cr, uid, id, context=context)
+            s3_exists = True
+            try:
+                self._s3_put(cr, uid, attach.store_fname)
+            except S3Error:
+                s3_exists = False
+            self.write(cr, SUPERUSER_ID, [id], { 's3_exists': s3_exists }, context=context)
         return res
 
     def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=True):
@@ -78,38 +85,34 @@ class ir_attachment(osv.osv):
             self._s3_get(cr, uid, fname)
         return super(ir_attachment, self)._file_read(cr, uid, fname, bin_size=bin_size)
 
-    def _file_write(self, cr, uid, value, checksum):
-        res = super(ir_attachment, self)._file_write(cr, uid, value, checksum)
-        if self._s3_enabled:
-            self._s3_put(cr, uid, self.store_fname)
-        return res
-
     def _file_delete(self, cr, uid, fname):
         if self._s3_enabled:
             try:
                 self._s3_client.delete_object(Bucket=self._s3_bucket, Key=fname)
             except Exception:
                 pass
-
         return super(ir_attachment, self)._file_delete(cr, uid, fname)
 
     def _s3_get(self, cr, uid, fname):
         try:
-            _logger.info("Retrieving s3 object %s", fname)
+            _logger.info("S3 (%s) get '%s'", self._s3_bucket, fname)
             r = self._s3_client.get_object(Bucket=self._s3_bucket, Key=fname)
         except Exception:
-            _logger.info("_s3_get %s", fname, exc_info=True)
-            raise S3NotExistsError(fname)
+            _logger.warning("S3 (%s) get '%s'", self._s3_bucket, fname, exc_info=True)
+            raise S3Error
 
         bin_data = r['Body'].read()
         checksum = self._compute_checksum(bin_data)
         super(ir_attachment, self)._file_write(cr, uid, bin_data, checksum)
-        _logger.info("_s3_get %s (%s)", fname, checksum, exc_info=True)
 
     def _s3_put(self, cr, uid, fname):
         bin_data = super(ir_attachment, self)._file_read(cr, uid, fname)
-        self._s3_client.put_object(Bucket=self._s3_bucket, Key=fname, Body=bin_data)
-        _logger.info("_s3_put %s", fname)
+        try:
+            _logger.info("S3 (%s) put '%s'", self._s3_bucket, fname)
+            self._s3_client.put_object(Bucket=self._s3_bucket, Key=fname, Body=bin_data)
+        except Exception:
+            _logger.warning("S3 (%s) put '%s'", self._s3_bucket, fname, exc_info=True)
+            raise S3Error
 
     _columns = {
         's3_exists': fields.boolean(string='Exists in s3 bucket'),
@@ -128,7 +131,7 @@ class ir_attachment(osv.osv):
                 try:
                     attachment._s3_get(attachment.store_fname)
                     continue
-                except S3NotExistsError:
+                except S3Error:
                     exists = False
 
             try:
