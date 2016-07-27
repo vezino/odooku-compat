@@ -4,9 +4,12 @@
 from openerp import api, SUPERUSER_ID
 from openerp.osv import fields, osv
 
+from werkzeug.local import Local, release_local
+
 import os
 import logging
 import boto3
+from botocore.exceptions import ClientError
 
 
 _logger = logging.getLogger(__name__)
@@ -21,9 +24,14 @@ class S3Error(Exception):
     pass
 
 
+class S3NoSuchKey(S3Error):
+    pass
+
+
 class ir_attachment(osv.osv):
 
     _inherit = 'ir.attachment'
+    _local = Local()
 
     @property
     def _s3_enabled(self):
@@ -37,18 +45,16 @@ class ir_attachment(osv.osv):
     def _s3_bucket(self):
         return os.environ.get(S3_BUCKET)
 
-    __s3_client = None
-
     @property
     def _s3_client(self):
-        if self.__s3_client is None:
-            self.__s3_client = boto3.client(
+        if not hasattr(self._local, 's3_client'):
+            self._local.s3_client = boto3.client(
                 's3',
                 aws_access_key_id=os.environ.get(AWS_ACCESS_KEY_ID),
                 aws_secret_access_key=os.environ.get(AWS_SECRET_ACCESS_KEY)
             )
 
-        return self.__s3_client
+        return self._local.s3_client
 
     def _data_get(self, cr, uid, ids, name, arg, context=None):
         if context is None:
@@ -59,9 +65,12 @@ class ir_attachment(osv.osv):
             if attach.store_fname:
                 try:
                     result[attach.id] = self._file_read(cr, uid, attach.store_fname, bin_size, attach.s3_exists)
-                except S3Error:
+                except S3NoSuchKey:
                     # SUPERUSER_ID as probably don't have write access, trigger during create
+                    _logger.warning("Preventing further s3 (%s) lookups for '%s'", self._s3_bucket, attach.store_fname)
                     self.write(cr, SUPERUSER_ID, [attach.id], { 's3_exists': False }, context=context)
+                    result[attach.id] = ''
+                except S3Error:
                     result[attach.id] = ''
             else:
                 result[attach.id] = attach.db_datas
@@ -81,15 +90,16 @@ class ir_attachment(osv.osv):
 
     def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=True):
         full_path = self._full_path(cr, uid, fname)
-        if not os.path.exists(full_path) and s3_exists and self._s3_enabled:
+        if not os.path.exists(full_path) and self._s3_enabled and s3_exists:
             self._s3_get(cr, uid, fname)
         return super(ir_attachment, self)._file_read(cr, uid, fname, bin_size=bin_size)
 
     def _file_delete(self, cr, uid, fname):
         if self._s3_enabled:
             try:
+                _logger.info("S3 (%s) delete '%s'", self._s3_bucket, fname)
                 self._s3_client.delete_object(Bucket=self._s3_bucket, Key=fname)
-            except Exception:
+            except ClientError:
                 pass
         return super(ir_attachment, self)._file_delete(cr, uid, fname)
 
@@ -97,20 +107,24 @@ class ir_attachment(osv.osv):
         try:
             _logger.info("S3 (%s) get '%s'", self._s3_bucket, fname)
             r = self._s3_client.get_object(Bucket=self._s3_bucket, Key=fname)
-        except Exception:
+        except ClientError as e:
             _logger.warning("S3 (%s) get '%s'", self._s3_bucket, fname, exc_info=True)
+            if e.response['Error']['Code'] == "NoSuchKey":
+                raise S3NoSuchKey
             raise S3Error
 
         bin_data = r['Body'].read()
         checksum = self._compute_checksum(bin_data)
-        super(ir_attachment, self)._file_write(cr, uid, bin_data, checksum)
+        value = bin_data.encode('base64')
+        super(ir_attachment, self)._file_write(cr, uid, value, checksum)
 
     def _s3_put(self, cr, uid, fname):
-        bin_data = super(ir_attachment, self)._file_read(cr, uid, fname)
+        value = super(ir_attachment, self)._file_read(cr, uid, fname)
+        bin_data = value.decode('base64')
         try:
             _logger.info("S3 (%s) put '%s'", self._s3_bucket, fname)
             self._s3_client.put_object(Bucket=self._s3_bucket, Key=fname, Body=bin_data)
-        except Exception:
+        except ClientError:
             _logger.warning("S3 (%s) put '%s'", self._s3_bucket, fname, exc_info=True)
             raise S3Error
 
@@ -131,7 +145,7 @@ class ir_attachment(osv.osv):
                 try:
                     attachment._s3_get(attachment.store_fname)
                     continue
-                except S3Error:
+                except S3NoSuchKey:
                     exists = False
 
             try:
