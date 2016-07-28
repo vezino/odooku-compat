@@ -648,14 +648,32 @@ class Connection(object):
             return False
 
 def connection_info_for(db_or_uri):
-    db_name = tools.config['db_name'].split(',')[0]
-    connection_info = {'database': db_name}
+    """ parse the given `db_or_uri` and return a 2-tuple (dbname, connection_params)
+    Connection params are either a dictionary with a single key ``dsn``
+    containing a connection URI, or a dictionary containing connection
+    parameter keywords which psycopg2 can build a key/value connection string
+    (dsn) from
+    :param str db_or_uri: database name or postgres dsn
+    :rtype: (str, dict)
+    """
+    if db_or_uri.startswith(('postgresql://', 'postgres://')):
+        # extract db from uri
+        us = urlparse.urlsplit(db_or_uri)
+        if len(us.path) > 1:
+            db_name = us.path[1:]
+        elif us.username:
+            db_name = us.username
+        else:
+            db_name = us.hostname
+        return db_name, {'dsn': db_or_uri}
+
+    connection_info = {'database': db_or_uri}
     for p in ('host', 'port', 'user', 'password'):
         cfg = tools.config['db_' + p]
         if cfg:
             connection_info[p] = cfg
 
-    return db_name, connection_info
+    return db_or_uri, connection_info
 
 _Pool = None
 

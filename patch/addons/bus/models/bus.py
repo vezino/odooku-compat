@@ -8,6 +8,7 @@ import threading
 import time
 
 import openerp
+import openerp.tools
 from openerp import api, fields, models
 from openerp.tools.misc import DEFAULT_SERVER_DATETIME_FORMAT
 
@@ -61,7 +62,8 @@ class ImBus(models.Model):
             # transaction is not commited yet, there will be nothing to fetch,
             # and the longpolling will return no notification.
             def notify():
-                with openerp.sql_db.db_connect('postgres').cursor() as cr:
+                db_name = tools.config['db_name'].split(',')[0]
+                with openerp.sql_db.db_connect(db_name).cursor() as cr:
                     cr.execute("notify imbus, %s", (json_dump(list(channels)),))
             self._cr.after('commit', notify)
 
@@ -143,7 +145,8 @@ class ImDispatch(object):
     def loop(self):
         """ Dispatch postgres notifications to the relevant polling threads/greenlets """
         _logger.info("Bus.loop listen imbus on db postgres")
-        with openerp.sql_db.db_connect('postgres').cursor() as cr:
+        db_name = tools.config['db_name'].split(',')[0]
+        with openerp.sql_db.db_connect(db_name).cursor() as cr:
             conn = cr._cnx
             cr.execute("listen imbus")
             cr.commit();

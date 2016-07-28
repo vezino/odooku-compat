@@ -178,12 +178,6 @@ def exp_restore(db_name, data, copy=False):
 
 def restore_db(db, dump_file, copy=False):
     assert isinstance(db, basestring)
-    if exp_db_exist(db):
-        _logger.info('RESTORE DB: %s already exists', db)
-        raise Exception("Database already exists")
-
-    _create_empty_database(db)
-
     filestore_path = None
     with openerp.tools.osutil.tempdir() as dump_dir:
         if zipfile.is_zipfile(dump_file):
