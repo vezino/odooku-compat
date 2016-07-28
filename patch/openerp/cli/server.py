@@ -149,7 +149,8 @@ def main(args):
 
     preload = []
     if config['db_name']:
-        preload = config['db_name'].split(',')
+        pass
+        #preload = config['db_name'].split(',')
 
     stop = config["stop_after_init"]
 

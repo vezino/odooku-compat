@@ -8,8 +8,7 @@ import threading
 import time
 
 import openerp
-import openerp.tools
-from openerp import api, fields, models
+from openerp import api, fields, models, tools
 from openerp.tools.misc import DEFAULT_SERVER_DATETIME_FORMAT
 
 _logger = logging.getLogger(__name__)
