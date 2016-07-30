@@ -18,12 +18,21 @@ sudo docker run \
   --net host \
   postgres:9.5
 
+# S3
+sudo docker run \
+  --name s3 \
+  -d \
+  --net host \
+  lphoward/fake-s3
+
 sleep 10
 DATABASE=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1`
 sudo docker exec postgres createdb -U odoo $DATABASE
 export DATABASE_URL=postgres://odoo:odoo@localhost:5432/$DATABASE
+export S3_BUCKET=$DATABASE
 
 sudo tee /etc/environment > /dev/null <<EOF
+export S3_BUCKET=$S3_BUCKET
 export DATABASE_URL=$DATABASE_URL
 export PORT=8000
 EOF

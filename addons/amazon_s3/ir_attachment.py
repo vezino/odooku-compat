@@ -3,21 +3,26 @@
 
 from openerp import api, SUPERUSER_ID
 from openerp.osv import fields, osv
+from openerp.tools import config
 
 from werkzeug.local import Local, release_local
 
 import os
 import logging
 import boto3
+import botocore.session
+from botocore.client import Config
 from botocore.exceptions import ClientError
 
 
 _logger = logging.getLogger(__name__)
 
 
+S3_DEV_URL = 'S3_DEV_URL'
 S3_BUCKET = 'S3_BUCKET'
 AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID'
 AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
+
 
 class S3Error(Exception):
     pass
@@ -38,6 +43,14 @@ class ir_attachment(osv.osv):
             bool(os.environ.get(key, None))
             for key in
             (S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+        ) or self._s3_dev
+
+    @property
+    def _s3_dev(self):
+        return all(
+            bool(os.environ.get(key, None))
+            for key in
+            (S3_BUCKET, S3_DEV_URL)
         )
 
     @property
@@ -47,25 +60,33 @@ class ir_attachment(osv.osv):
     @property
     def _s3_client(self):
         if not hasattr(self._local, 's3_client'):
-            self._local.s3_client = boto3.client(
-                's3',
-                aws_access_key_id=os.environ.get(AWS_ACCESS_KEY_ID),
-                aws_secret_access_key=os.environ.get(AWS_SECRET_ACCESS_KEY)
-            )
+            if self._s3_dev:
+                _logger.warning("S3 dev mode enabled, do not use in production!!!")
+                session = botocore.session.get_session()
+                self._local.s3_client = session.create_client(
+                    's3',
+                    aws_access_key_id='--',
+                    aws_secret_access_key='--',
+                    endpoint_url=os.environ.get(S3_DEV_URL),
+                    config=Config(
+                        s3={'addressing_style': 'path'},
+                        signature_version='s3'
+                    )
+                )
+            else:
+                self._local.s3_client = boto3.client(
+                    's3',
+                    aws_access_key_id=os.environ.get(AWS_ACCESS_KEY_ID),
+                    aws_secret_access_key=os.environ.get(AWS_SECRET_ACCESS_KEY)
+                )
 
         return self._local.s3_client
-
-    def create(self, cr, uid, values, context=None):
-        res = super(ir_attachment, self).create(cr, uid, values, context)
-        print res, values.get('datas_fname')
-        return res
 
     def _data_get(self, cr, uid, ids, name, arg, context=None):
         if context is None:
             context = {}
         result = {}
         bin_size = context.get('bin_size')
-        print "DATA GET ", ids
         for attach in self.browse(cr, uid, ids, context=context):
             if attach.store_fname:
                 try:
@@ -83,7 +104,6 @@ class ir_attachment(osv.osv):
 
     def _data_set(self, cr, uid, id, name, value, arg, context=None):
         res = super(ir_attachment, self)._data_set(cr, uid, id, name, value, arg, context=None)
-        print "DATA SET", id
         if self._s3_enabled:
             attach = self.browse(cr, uid, id, context=context)
             s3_exists = True
@@ -96,19 +116,29 @@ class ir_attachment(osv.osv):
             _logger.warning("S3 is not enabled, dataloss for attachment [%s] is imminent", id)
         return res
 
-    def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=True):
+    def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=None):
         full_path = self._full_path(cr, uid, fname)
-        if not os.path.exists(full_path) and self._s3_enabled and s3_exists:
-            self._s3_get(cr, uid, fname)
+        if not os.path.exists(full_path) and self._s3_enabled:
+            if s3_exists:
+                self._s3_get(cr, uid, fname)
+            elif s3_exists is False:
+                _logger.warning("S3 (%s) lookup prevented '%s'", self._s3_bucket, fname)
+        elif os.path.exists(full_path) and self._s3_enabled and s3_exists is None:
+            _logger.warning("S3 (%s) detected missing file '%s'", self._s3_bucket, fname)
         return super(ir_attachment, self)._file_read(cr, uid, fname, bin_size=bin_size)
 
     def _file_delete(self, cr, uid, fname):
         if self._s3_enabled:
-            try:
-                _logger.info("S3 (%s) delete '%s'", self._s3_bucket, fname)
-                self._s3_client.delete_object(Bucket=self._s3_bucket, Key=fname)
-            except ClientError:
-                pass
+            # using SQL to include files hidden through unlink or due to record rules
+            cr.execute("SELECT COUNT(*) FROM ir_attachment WHERE store_fname = %s", (fname,))
+            count = cr.fetchone()[0]
+            if not count:
+                try:
+                    _logger.info("S3 (%s) delete '%s'", self._s3_bucket, fname)
+                    self._s3_client.delete_object(Bucket=self._s3_bucket, Key=fname)
+                except ClientError as e:
+                    if e.response['Error']['Code'] != "NoSuchKey":
+                        _logger.warning("S3 (%s) delete '%s'", self._s3_bucket, fname, exc_info=True)
         return super(ir_attachment, self)._file_delete(cr, uid, fname)
 
     def _s3_get(self, cr, uid, fname):
@@ -142,24 +172,24 @@ class ir_attachment(osv.osv):
     }
 
     _defaults = {
-        's3_exists': True,
+        's3_exists': None,
     }
 
     @api.multi
     def action_s3_sync(self):
         for attachment in self:
-            exists = attachment.s3_exists
-            if exists:
-                try:
-                    attachment._s3_get(attachment.store_fname)
-                    continue
-                except S3NoSuchKey:
-                    exists = False
+            exists = False
+            try:
+                attachment._s3_get(attachment.store_fname)
+            except S3NoSuchKey:
+                exists = False
+            except S3Error:
+                raise
 
             try:
                 attachment._s3_put(attachment.store_fname)
                 exists = True
-            except Exception:
-                pass
+            except S3Error:
+                raise
 
             attachment.write({ 's3_exists': exists })
