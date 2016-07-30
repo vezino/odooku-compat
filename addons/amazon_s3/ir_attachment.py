@@ -19,7 +19,6 @@ S3_BUCKET = 'S3_BUCKET'
 AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID'
 AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY'
 
-
 class S3Error(Exception):
     pass
 
@@ -36,7 +35,7 @@ class ir_attachment(osv.osv):
     @property
     def _s3_enabled(self):
         return all(
-            (key in os.environ)
+            bool(os.environ.get(key, None))
             for key in
             (S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
         )
@@ -56,11 +55,17 @@ class ir_attachment(osv.osv):
 
         return self._local.s3_client
 
+    def create(self, cr, uid, values, context=None):
+        res = super(ir_attachment, self).create(cr, uid, values, context)
+        print res, values.get('datas_fname')
+        return res
+
     def _data_get(self, cr, uid, ids, name, arg, context=None):
         if context is None:
             context = {}
         result = {}
         bin_size = context.get('bin_size')
+        print "DATA GET ", ids
         for attach in self.browse(cr, uid, ids, context=context):
             if attach.store_fname:
                 try:
@@ -78,6 +83,7 @@ class ir_attachment(osv.osv):
 
     def _data_set(self, cr, uid, id, name, value, arg, context=None):
         res = super(ir_attachment, self)._data_set(cr, uid, id, name, value, arg, context=None)
+        print "DATA SET", id
         if self._s3_enabled:
             attach = self.browse(cr, uid, id, context=context)
             s3_exists = True
@@ -86,6 +92,8 @@ class ir_attachment(osv.osv):
             except S3Error:
                 s3_exists = False
             self.write(cr, SUPERUSER_ID, [id], { 's3_exists': s3_exists }, context=context)
+        else:
+            _logger.warning("S3 is not enabled, dataloss for attachment [%s] is imminent", id)
         return res
 
     def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=True):

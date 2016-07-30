@@ -1,12 +1,12 @@
-*.swp
-*.pyc
-__pycache__
-*.egg-info
-.DS_Store
-.venv
-.coverage
 .vagrant
 .bundle
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -84,9 +84,6 @@ target/
 
 # celery beat schedule file
 celerybeat-schedule
-
-# dotenv
-.env
 
 # virtualenv
 venv/
