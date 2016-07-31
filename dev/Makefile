@@ -20,6 +20,8 @@ endef
 define BASH_INIT
 echo '-----> Importing slug' \
 ;/bin/herokuish slug import < /odooku/slug.tar.gz \
+;echo '-----> Installing Odooku runtime' \
+;/app/.heroku/odoo/bin/pip install --upgrade /vagrant/runtime/. \
 ;echo '-----> Loading addons' \
 ;cp -a /vagrant/addons/. /app/.heroku/odoo/compat_addons/ \
 ;echo '-----> Applying patches' \
