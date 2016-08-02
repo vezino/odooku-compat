@@ -14,6 +14,7 @@ from openerp.tools.misc import DEFAULT_SERVER_DATETIME_FORMAT
 _logger = logging.getLogger(__name__)
 
 # longpolling timeout connection
+# Max is 30 seconds for heroku platform
 TIMEOUT = 20
 
 #----------------------------------------------------------
@@ -165,6 +166,7 @@ class ImDispatch(object):
                         event.set()
 
     def run(self):
+        time.sleep(TIMEOUT)
         while True:
             try:
                 self.loop()
@@ -173,7 +175,7 @@ class ImDispatch(object):
                 time.sleep(TIMEOUT)
 
     def start(self):
-        # threaded mode
+        # Force threaded bus
         self.Event = threading.Event
         t = threading.Thread(name="%s.Bus" % __name__, target=self.run)
         t.daemon = True

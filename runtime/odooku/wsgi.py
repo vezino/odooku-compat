@@ -1,9 +1,4 @@
-# Part of Odoo. See LICENSE_ODOO file for full copyright and licensing details.
-
 import gunicorn.app.base
-from gunicorn.six import iteritems
-
-from openerp.tools import config
 
 import logging
 
@@ -18,10 +13,8 @@ class OdookuApplication(gunicorn.app.base.BaseApplication):
         super(OdookuApplication, self).__init__()
 
     def load_config(self):
-        config = dict([(key, value) for key, value in iteritems(self.options)
-                       if key in self.cfg.settings and value is not None])
-        for key, value in iteritems(config):
-            self.cfg.set(key.lower(), value)
+        for key, value in self.options.iteritems():
+            self.cfg.set(key, value)
 
     def load(self):
         return self.application
@@ -34,14 +27,15 @@ def _post_fork(server, worker):
     root._loaded = True
 
 
-def run(preload=None, stop=False):
+
+def run(port, workers=3, threads=2, preload=None):
     # Run gunicorn with at least 2 theads per worker,
     # so that the bus can run.
     options = {
-        'bind': '%s:%s' % ('0.0.0.0', '8000'),
+        'bind': '%s:%s' % ('0.0.0.0', port),
         'worker_class': 'gthread',
-        'threads': 2,
-        'workers': 3 or config['workers'],
+        'threads': threads,
+        'workers': workers,
         'post_fork': _post_fork,
         'logger_class': 'odooku.logger.GunicornLogger',
     }

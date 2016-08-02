@@ -44,14 +44,27 @@ build:
 			&& /bin/herokuish slug export > /odooku/slug.tar.gz"
 
 
-run:
+run-web:
+	-@docker rm -f web.1
 	@docker run \
-		--rm -it \
+		-d \
 		--name web.1 \
 		${RUN_ARGS} \
 		bin/bash -c \
 			"${BASH_INIT} \
 			;USER=herokuishuser /bin/herokuish procfile start web"
+	@docker logs -f web.1
+
+
+run-worker:
+	-@docker rm -f worker.1
+	@docker run \
+		-d \
+		--name worker.1 \
+		${RUN_ARGS} \
+		bin/bash -c \
+			"${BASH_INIT} \
+			;USER=herokuishuser /bin/herokuish procfile start worker"
 
 
 shell:

@@ -11,8 +11,9 @@ setup(
     packages=find_packages(),
     zip_safe=False,
     install_requires=[
-        'click',
-        'gunicorn'
+        'click>=6.6',
+        'gunicorn>=19.6',
+        'pistil>=0.2.0'
     ],
     entry_points='''
         [console_scripts]
