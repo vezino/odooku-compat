@@ -1,17 +1,11 @@
 import click
-
-import odooku.wsgi
 import urlparse
 
 import openerp
-openerp.evented = True
-openerp.multi_process = True
-
 from openerp.tools import config
 
 import logging
-
-_logger = logging.getLogger('openerp')
+_logger = logging.getLogger(__name__)
 
 def _prefix_envvar(envvar):
     return 'ODOOKU_%s' % envvar
@@ -45,11 +39,6 @@ def main(ctx, database_url, addons, debug):
     config['db_port'] = database_url.port
     config['dev_mode'] = debug
 
-
-    # Override logging
-    from odooku.logs import setup_logging
-    setup_logging(debug)
-
     ctx.obj.update({
         'debug': debug,
     })
@@ -65,6 +54,7 @@ def wsgi(ctx, port):
         ctx.obj['debug']
     )
 
+    import odooku.wsgi
     odooku.wsgi.run()
 
 

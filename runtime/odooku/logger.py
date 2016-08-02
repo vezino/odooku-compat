@@ -2,27 +2,34 @@ from logging.config import dictConfig
 
 import sys
 
+from gunicorn.glogging import Logger
 
 
-def setup_logging(debug=False):
+class GunicornLogger(Logger):
+
+    def setup(self, cfg):
+        pass
+
+
+def setup_logger(debug=False):
     dictConfig(dict(
         version=1,
         disable_existing_loggers=True,
         loggers={
-            'root': {'level': 'DEBUG', 'handlers': ['console']},
             'gunicorn.error': {
                 'level': 'DEBUG',
                 'handlers': ['error_console'],
-                'propagate': True,
                 'qualname': 'gunicorn.error'
             },
-
             'gunicorn.access': {
                 'level': 'DEBUG',
                 'handlers': ['console'],
-                'propagate': True,
                 'qualname': 'gunicorn.access'
-            }
+            },
+            '': {
+                'level': 'DEBUG',
+                'handlers': ['console']
+            },
         },
         handlers={
             'console': {
@@ -38,7 +45,7 @@ def setup_logging(debug=False):
         },
         formatters={
             'generic': {
-                'format': '%(asctime)s [%(process)d] [%(levelname)s] %(message)s',
+                'format': '%(asctime)s [%(process)d] [%(name)s] [%(levelname)s] %(message)s',
                 'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
                 'class': 'logging.Formatter'
             }

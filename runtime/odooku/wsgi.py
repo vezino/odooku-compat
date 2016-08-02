@@ -1,10 +1,13 @@
 # Part of Odoo. See LICENSE_ODOO file for full copyright and licensing details.
 
 import gunicorn.app.base
-
 from gunicorn.six import iteritems
 
 from openerp.tools import config
+
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class OdookuApplication(gunicorn.app.base.BaseApplication):
@@ -25,18 +28,22 @@ class OdookuApplication(gunicorn.app.base.BaseApplication):
 
 
 def _post_fork(server, worker):
-    import psycogreen.gevent
-    psycogreen.gevent.patch_psycopg()
-    from odooku.logs import setup_logging
-    setup_logging(False)
+    # Load addons before handling requests
+    from openerp.http import root
+    root.load_addons()
+    root._loaded = True
+
 
 def run(preload=None, stop=False):
+    # Run gunicorn with at least 2 theads per worker,
+    # so that the bus can run.
     options = {
         'bind': '%s:%s' % ('0.0.0.0', '8000'),
-        'worker_class': 'gevent',
+        'worker_class': 'gthread',
+        'threads': 2,
         'workers': 3 or config['workers'],
         'post_fork': _post_fork,
-        'loglevel': 'debug'
+        'logger_class': 'odooku.logger.GunicornLogger',
     }
 
     from openerp.service.wsgi_server import application

@@ -173,20 +173,11 @@ class ImDispatch(object):
                 time.sleep(TIMEOUT)
 
     def start(self):
-        if openerp.evented:
-            # gevent mode
-            import gevent
-            self.Event = gevent.event.Event
-            gevent.spawn(self.run)
-        elif openerp.multi_process:
-            # disabled in prefork mode
-            return
-        else:
-            # threaded mode
-            self.Event = threading.Event
-            t = threading.Thread(name="%s.Bus" % __name__, target=self.run)
-            t.daemon = True
-            t.start()
+        # threaded mode
+        self.Event = threading.Event
+        t = threading.Thread(name="%s.Bus" % __name__, target=self.run)
+        t.daemon = True
+        t.start()
         return self
 
 dispatch = ImDispatch().start()

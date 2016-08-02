@@ -1470,7 +1470,7 @@ class Root(object):
     """Root WSGI application for the OpenERP Web Client.
     """
     def __init__(self):
-        self._loaded = False
+        self._loaded = True
 
     @lazy_property
     def session_store(self):
@@ -1487,9 +1487,6 @@ class Root(object):
     def __call__(self, environ, start_response):
         """ Handle a WSGI request
         """
-        if not self._loaded:
-            self._loaded = True
-            self.load_addons()
         return self.dispatch(environ, start_response)
 
     def load_addons(self):
@@ -1497,7 +1494,6 @@ class Root(object):
         controllers and configure them.  """
         # TODO should we move this to ir.http so that only configured modules are served ?
         statics = {}
-
         for addons_path in openerp.modules.module.ad_paths:
             for module in sorted(os.listdir(str(addons_path))):
                 if module not in addons_module:

@@ -1,9 +1,8 @@
 from setuptools import setup, find_packages
-from odooku import __version__
 
 setup(
     name='odooku',
-    version=__version__,
+    version='0.1.0',
     url='https://github.com/adaptivdesign/odooku-compat',
     author='Raymond Reggers - Adaptiv Design',
     author_email='raymond@adaptiv.nl',
