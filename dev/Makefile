@@ -21,7 +21,7 @@ define BASH_INIT
 echo '-----> Importing slug' \
 ;/bin/herokuish slug import < /odooku/slug.tar.gz \
 ;echo '-----> Installing Odooku runtime' \
-;/app/.heroku/odoo/bin/pip install --upgrade /vagrant/runtime/. \
+;/app/.heroku/odoo/bin/pip install --disable-pip-version-check --upgrade /vagrant/runtime/. \
 ;echo '-----> Loading addons' \
 ;cp -a /vagrant/addons/. /app/.heroku/odoo/compat_addons/ \
 ;echo '-----> Applying patches' \
@@ -45,7 +45,7 @@ build:
 
 
 run-web:
-	-@docker rm -f web.1
+	-@docker rm -f -v web.1
 	@docker run \
 		-d \
 		--name web.1 \
@@ -57,7 +57,7 @@ run-web:
 
 
 run-worker:
-	-@docker rm -f worker.1
+	-@docker rm -f  -v worker.1
 	@docker run \
 		-d \
 		--name worker.1 \
@@ -65,6 +65,7 @@ run-worker:
 		bin/bash -c \
 			"${BASH_INIT} \
 			;USER=herokuishuser /bin/herokuish procfile start worker"
+	@docker logs -f worker.1
 
 
 shell:

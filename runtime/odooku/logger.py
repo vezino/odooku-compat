@@ -1,10 +1,12 @@
 import sys
+import logging
 from logging.config import dictConfig
 
 from gunicorn.glogging import Logger
 
 
 LOG_LEVEL = 'INFO'
+
 
 class GunicornLogger(Logger):
 
@@ -13,6 +15,7 @@ class GunicornLogger(Logger):
 
 
 def setup_logger(debug=False):
+    logging.addLevelName(25, 'INFO')
     dictConfig(dict(
         version=1,
         disable_existing_loggers=True,
@@ -41,8 +44,7 @@ def setup_logger(debug=False):
         },
         formatters={
             'generic': {
-                # 'format': '%(asctime)s [%(process)d] [%(name)s] [%(levelname)s] %(message)s',
-                'format': '[%(process)d] [%(name)s] [%(levelname)s] %(message)s',
+                'format': '[%(process)d] [%(levelname)8s] %(message)s',
                 'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
                 'class': 'logging.Formatter'
             }

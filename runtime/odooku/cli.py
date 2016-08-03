@@ -80,17 +80,24 @@ def main(ctx, database_url, database_maxconn, addons, demo_data, debug):
     type=click.INT,
     help="Number of threads per wsgi worker, should be a minimum of 2."
 )
+@click.option(
+    '--timeout',
+    default=30,
+    envvar='TIMEOUT',
+    type=click.INT,
+    help="Request timeout."
+)
 @click.pass_context
-def wsgi(ctx, port, workers, threads):
+def wsgi(ctx, port, workers, threads, timeout):
     debug = (
         ctx.obj['debug']
     )
 
     config['workers'] = workers
 
-    import odooku.wsgi
-    odooku.wsgi.run(port, workers=workers, threads=threads)
-
+    from odooku.wsgi import WSGIServer
+    server = WSGIServer(port, workers=workers, threads=threads, timeout=timeout)
+    server.run()
 
 @click.command()
 @click.pass_context
@@ -122,7 +129,7 @@ def preload(ctx, modules):
     debug = (
         ctx.obj['debug']
     )
-    
+
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'])
 
