@@ -5,48 +5,61 @@ from logging.config import dictConfig
 from gunicorn.glogging import Logger
 
 
-LOG_LEVEL = 'INFO'
-
-
 class GunicornLogger(Logger):
 
     def setup(self, cfg):
         pass
 
+    def access(self, resp, req, environ, request_time):
+        """ See http://httpd.apache.org/docs/2.0/logs.html#combined
+        for format details
+        """
+        # wrap atoms:
+        # - make sure atoms will be test case insensitively
+        # - if atom doesn't exist replace it by '-'
+        safe_atoms = self.atoms_wrapper_class(self.atoms(resp, req, environ,
+            request_time))
+
+        try:
+            self.access_log.info(self.cfg.access_log_format % safe_atoms)
+        except:
+            self.error(traceback.format_exc())
+
 
 def setup_logger(debug=False):
-    logging.addLevelName(25, 'INFO')
+    level = 'DEBUG' if debug else 'INFO'
     dictConfig(dict(
         version=1,
         disable_existing_loggers=True,
         loggers={
             'gunicorn.error': {
-                'level': LOG_LEVEL,
+                'level': level,
                 'handlers': ['console'],
                 'qualname': 'gunicorn.error'
             },
             'gunicorn.access': {
-                'level': LOG_LEVEL,
+                'level': level,
                 'handlers': ['console'],
                 'qualname': 'gunicorn.access'
             },
             '': {
-                'level': LOG_LEVEL,
+                'level': level,
                 'handlers': ['console']
             },
         },
         handlers={
             'console': {
                 'class': 'logging.StreamHandler',
-                'formatter': 'generic',
+                'formatter': 'simple',
                 'stream': sys.stdout
-            }
+            },
         },
         formatters={
-            'generic': {
-                'format': '[%(process)d] [%(levelname)8s] %(message)s',
-                'datefmt': '[%Y-%m-%d %H:%M:%S %z]',
+            'simple': {
+                'format': '[%(process)d] [%(levelname)s] %(message)s',
                 'class': 'logging.Formatter'
-            }
+            },
         }
     ))
+
+    logging.addLevelName(25, 'INFO')

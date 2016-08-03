@@ -1,13 +1,6 @@
 import click
 import urlparse
 
-import openerp
-from openerp.tools import config
-
-import logging
-_logger = logging.getLogger(__name__)
-
-
 def _prefix_envvar(envvar):
     return 'ODOOKU_%s' % envvar
 
@@ -27,6 +20,31 @@ def _prefix_envvar(envvar):
     help="Maximum number of database connections per worker. See Heroku Postgres plans."
 )
 @click.option(
+    '--redis-url',
+    envvar="REDIS_URL",
+    help="redis://[password]@[host]:[port]/[database number]"
+)
+@click.option(
+    '--aws-access-key-id',
+    envvar="AWS_ACCESS_KEY_ID",
+    help="Your AWS access key id."
+)
+@click.option(
+    '--aws-secret-access-key',
+    envvar="AWS_ACCESS_KEY_ID",
+    help="Your AWS secret access key."
+)
+@click.option(
+    '--s3-bucket',
+    envvar="S3_BUCKET",
+    help="S3 bucket for filestore."
+)
+@click.option(
+    '--s3-dev-url',
+    envvar="S3_DEV_URL",
+    help="S3 development url."
+)
+@click.option(
     '--addons',
     required=True,
     envvar=_prefix_envvar('ADDONS')
@@ -42,7 +60,39 @@ def _prefix_envvar(envvar):
     envvar=_prefix_envvar('DEBUG')
 )
 @click.pass_context
-def main(ctx, database_url, database_maxconn, addons, demo_data, debug):
+def main(ctx, database_url, database_maxconn, redis_url,
+        aws_access_key_id, aws_secret_access_key, s3_bucket, s3_dev_url,
+        addons, demo_data, debug):
+
+    from odooku.logger import setup_logger
+    setup_logger(debug=debug)
+
+    # Setup S3
+    import odooku.s3
+    odooku.s3.configure(
+        bucket=s3_bucket,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        dev_url=s3_dev_url
+    )
+
+    # Setup Redis
+    import odooku.redis
+    redis_url = urlparse.urlparse(redis_url) if redis_url else None
+    odooku.redis.configure(
+        host=redis_url.hostname if redis_url else None,
+        port=redis_url.port if redis_url else None,
+        password=redis_url.password if redis_url else None,
+        db_number=redis_url.path[1:] if redis_url else None
+    )
+
+    import openerp
+    # Even if 1 worker is running, we can still be running multiple
+    # heroku instances.
+    openerp.multi_process = True
+
+    # Setup main configuration
+    from openerp.tools import config
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
     config['addons_path'] = addons
@@ -53,15 +103,18 @@ def main(ctx, database_url, database_maxconn, addons, demo_data, debug):
     config['db_port'] = database_url.port
     config['db_maxconn'] = database_maxconn
 
-    config['without_demo'] = not demo_data
+    config['without_demo'] = 'all' if not demo_data else ''
     config['debug'] = debug
     config['list_db'] = False
 
     ctx.obj.update({
         'debug': debug,
+        'config': config
     })
 
-    _logger.info(openerp.modules.module.ad_paths)
+    import logging
+    _logger = logging.getLogger(__name__)
+    _logger.info("Odoo modules at:\n%s" %  "\n".join(openerp.modules.module.ad_paths))
 
 
 @click.command()
@@ -89,8 +142,8 @@ def main(ctx, database_url, database_maxconn, addons, demo_data, debug):
 )
 @click.pass_context
 def wsgi(ctx, port, workers, threads, timeout):
-    debug = (
-        ctx.obj['debug']
+    config = (
+        ctx.obj['config']
     )
 
     config['workers'] = workers
@@ -109,8 +162,8 @@ def wsgi(ctx, port, workers, threads, timeout):
     help="Number of cron workers to run."
 )
 def cron(ctx, workers):
-    debug = (
-        ctx.obj['debug']
+    config = (
+        ctx.obj['config']
     )
 
     import odooku.cron
@@ -126,8 +179,8 @@ def cron(ctx, workers):
     envvar=_prefix_envvar('PRELOAD')
 )
 def preload(ctx, modules):
-    debug = (
-        ctx.obj['debug']
+    config = (
+        ctx.obj['config']
     )
 
     from openerp.modules.registry import RegistryManager

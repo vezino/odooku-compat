@@ -22,7 +22,9 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
             workers=workers,
             threads=threads,
             worker_class=worker_class,
-            logger_class=logger_class
+            logger_class=logger_class,
+            # Preloading is not desired.
+            preload_app=False,
         )
 
         self.options.update(options)
@@ -32,16 +34,11 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
     def _worker_abort(worker):
         pass
 
-    @staticmethod
-    def _post_fork(server, worker):
-        # Load addons before handling requests
-        from openerp.http import root
-        root.load_addons()
-        root._loaded = True
-
     def load_config(self):
-        _logger.info("Gunicorn config %s" % self.options)
-        self.cfg.set('post_fork', self._post_fork)
+        _logger.info("Gunicorn config:\n%s" % "\n".join([
+            "%s: %s" % (key, val) for (key, val) in
+            self.options.iteritems()
+        ]))
         self.cfg.set('worker_abort', self._worker_abort)
         for key, value in self.options.iteritems():
             self.cfg.set(key, value)
@@ -49,4 +46,13 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
     def load(self):
         _logger.info("Loading Odoo WSGI application")
         from openerp.service.wsgi_server import application
+
+        # Load addons before handling requests
+        from odooku.http import Root
+        import openerp.http
+        root = Root()
+        root.preload()
+        openerp.http.root = root
+
+
         return application

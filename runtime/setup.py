@@ -13,7 +13,8 @@ setup(
     install_requires=[
         'click>=6.6',
         'gunicorn>=19.6',
-        'pistil>=0.2.0'
+        'redis>=2.10.5',
+        'pistil>=0.2.0',
     ],
     entry_points='''
         [console_scripts]
