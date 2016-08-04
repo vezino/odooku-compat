@@ -1,6 +1,9 @@
 import click
 import urlparse
 
+
+from odooku.params import params
+
 def _prefix_envvar(envvar):
     return 'ODOOKU_%s' % envvar
 
@@ -91,7 +94,7 @@ def main(ctx, database_url, database_maxconn, redis_url,
     # heroku instances.
     openerp.multi_process = True
 
-    # Setup main configuration
+    # Patch odoo config
     from openerp.tools import config
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
@@ -146,7 +149,11 @@ def wsgi(ctx, port, workers, threads, timeout):
         ctx.obj['config']
     )
 
+    # Patch odoo config
     config['workers'] = workers
+
+    # Keep track of custom config params
+    params.TIMEOUT = timeout
 
     from odooku.wsgi import WSGIServer
     server = WSGIServer(port, workers=workers, threads=threads, timeout=timeout)
