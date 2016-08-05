@@ -34,7 +34,7 @@ def _prefix_envvar(envvar):
 )
 @click.option(
     '--aws-secret-access-key',
-    envvar="AWS_ACCESS_KEY_ID",
+    envvar="AWS_SECRET_ACCESS_KEY",
     help="Your AWS secret access key."
 )
 @click.option(

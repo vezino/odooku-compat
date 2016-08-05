@@ -13,6 +13,7 @@ touch /odooku/env.mk
 # Postgresql
 sudo docker run \
   --name postgres \
+  --restart always \
   -e POSTGRES_PASSWORD=odoo \
   -e POSTGRES_USER=odoo \
   -d \
@@ -22,6 +23,7 @@ sudo docker run \
 # Redis
 sudo docker run \
   --name redis \
+  --restart always \
   -d \
   --net host \
   redis
@@ -29,6 +31,7 @@ sudo docker run \
 # S3
 sudo docker run \
   --name s3 \
+  --restart always \
   -d \
   --net host \
   lphoward/fake-s3
