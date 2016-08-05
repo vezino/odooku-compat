@@ -10,6 +10,7 @@ define RUN_ARGS
 -v /vagrant:/vagrant \
 -v /odooku:/odooku \
 -e DATABASE_URL=${DATABASE_URL} \
+-e REDIS_URL=${REDIS_URL} \
 -e S3_BUCKET=${S3_BUCKET} \
 -e S3_DEV_URL="http://localhost:4569" \
 -e PORT=${PORT} \

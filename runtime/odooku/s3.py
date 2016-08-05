@@ -29,12 +29,13 @@ class S3Pool(object):
         self._dev_url = dev_url
 
     def check(self):
-        try:
-            _logger.info("S3 (%s) head", self.bucket)
-            self.client.head_bucket(Bucket=self.bucket)
-        except ClientError as e:
-            _logger.warning("S3 (%s) head", self.bucket, exc_info=True)
-            return False
+        if not self._dev_url:
+            try:
+                _logger.info("S3 (%s) head", self.bucket)
+                self.client.head_bucket(Bucket=self.bucket)
+            except ClientError as e:
+                _logger.warning("S3 (%s) head", self.bucket, exc_info=True)
+                return False
 
         return True
 

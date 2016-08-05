@@ -33,6 +33,9 @@ class ir_attachment(osv.osv):
                     result[attach.id] = ''
                 except S3Error:
                     result[attach.id] = ''
+
+                if result[attach.id] == '':
+                    _logger.warning("Failed to read attachment %s/%s: %s", attach.id, attach.name, attach.datas_fname)
             else:
                 result[attach.id] = attach.db_datas
         return result

@@ -249,8 +249,9 @@ def exp_db_exist(db_name):
     return bool(openerp.sql_db.db_connect(db_name))
 
 def list_dbs(force=False):
-    res = []
-    return res
+    if not openerp.tools.config['list_db'] and not force:
+        raise openerp.exceptions.AccessDenied()
+    return openerp.tools.config.get('db_name', '').split(',')
 
 def exp_list(document=False):
     if not openerp.tools.config['list_db']:

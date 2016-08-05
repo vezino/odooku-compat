@@ -1,4 +1,4 @@
-class Params(object)
+class Params(object):
     pass
 
 

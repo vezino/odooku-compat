@@ -9,5 +9,6 @@
   'data': [
     'ir_attachment.xml'
   ],
-  'auto_install': True
+  'auto_install': True,
+  'post_init_hook': '_force_s3_storage',
 }

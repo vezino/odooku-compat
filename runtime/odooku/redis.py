@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import os
 import logging
 
@@ -11,6 +13,7 @@ _logger = logging.getLogger(__name__)
 class RedisPool(object):
 
     def __init__(self, host, port, password=None, db_number=None):
+        self._local = Local()
         self._host = host
         self._port = port
         self._password = password
