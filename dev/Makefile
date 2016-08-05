@@ -29,7 +29,6 @@ define RUN_ARGS
 -e S3_BUCKET="${S3_BUCKET}" \
 -e S3_DEV_URL="http://localhost:4569" \
 -e PORT="${PORT}" \
--e ODOOKU_DEV=true \
 gliderlabs/herokuish
 endef
 

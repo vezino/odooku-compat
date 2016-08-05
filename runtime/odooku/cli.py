@@ -113,6 +113,7 @@ def main(ctx, database_url, database_maxconn, redis_url,
 
     config['without_demo'] = 'all' if not demo_data else ''
     config['debug'] = debug
+    config['dev_mode'] = dev
     config['list_db'] = False
 
     ctx.obj.update({
