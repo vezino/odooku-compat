@@ -52,5 +52,6 @@ def LocalService(name):
                     return registry['ir.actions.report.xml']._lookup_report(cr, name[len('report.'):])
 
 
+# PATCH !!
 def init_logger():
     pass

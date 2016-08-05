@@ -62,10 +62,15 @@ def _prefix_envvar(envvar):
     is_flag=True,
     envvar=_prefix_envvar('DEBUG')
 )
+@click.option(
+    '--dev',
+    is_flag=True,
+    envvar=_prefix_envvar('DEV')
+)
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_dev_url,
-        addons, demo_data, debug):
+        addons, demo_data, debug, dev):
 
     from odooku.logger import setup_logger
     setup_logger(debug=debug)
@@ -112,12 +117,19 @@ def main(ctx, database_url, database_maxconn, redis_url,
 
     ctx.obj.update({
         'debug': debug,
+        'dev': dev,
         'config': config
     })
 
     import logging
     _logger = logging.getLogger(__name__)
     _logger.info("Odoo modules at:\n%s" %  "\n".join(openerp.modules.module.ad_paths))
+
+    if dev:
+        _logger.warning("RUNNING IN DEVELOPMENT MODE")
+
+    if debug:
+        _logger.warning("RUNNING IN DEBUG MODE")
 
 
 @click.command()
@@ -145,7 +157,9 @@ def main(ctx, database_url, database_maxconn, redis_url,
 )
 @click.pass_context
 def wsgi(ctx, port, workers, threads, timeout):
-    config = (
+    debug, dev, config = (
+        ctx.obj['debug'],
+        ctx.obj['dev'],
         ctx.obj['config']
     )
 
@@ -154,9 +168,18 @@ def wsgi(ctx, port, workers, threads, timeout):
 
     # Keep track of custom config params
     params.TIMEOUT = timeout
+    extra_options = {}
+    if dev:
+        extra_options['reload'] = True
 
     from odooku.wsgi import WSGIServer
-    server = WSGIServer(port, workers=workers, threads=threads, timeout=timeout)
+    server = WSGIServer(
+        port,
+        workers=workers,
+        threads=threads,
+        timeout=timeout,
+        **extra_options
+    )
     server.run()
 
 @click.command()
@@ -168,13 +191,21 @@ def wsgi(ctx, port, workers, threads, timeout):
     type=click.INT,
     help="Number of cron workers to run."
 )
-def cron(ctx, workers):
+@click.option(
+    '--once',
+    is_flag=True,
+    envvar=_prefix_envvar('CRON_ONCE')
+)
+def cron(ctx, workers, once):
     config = (
         ctx.obj['config']
     )
 
     import odooku.cron
-    odooku.cron.run(workers=workers)
+    if once:
+        odooku.cron.run_once()
+    else:
+        odooku.cron.run(workers=workers)
 
 
 @click.command()

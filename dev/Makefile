@@ -1,19 +1,35 @@
+include /odooku/env.mk
+
+PORT=8000
+NUM=1
 DB_USER=$(shell echo $$DATABASE_URL | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
 DB_PASSWORD=$(shell echo $$DATABASE_URL | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
 DB_HOST=$(shell echo $$DATABASE_URL | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
 DB_PORT=$(shell echo $$DATABASE_URL | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
 DB_NAME=$(shell echo $$DATABASE_URL | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
+BUILDPACK_URL=https://github.com/adaptivdesign/odooku-buildpack
+
+NEW_DATABASE:=$(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+
+define NEW_ENV
+DATABASE_URL=postgres://odoo:odoo@localhost:5432/${NEW_DATABASE}
+REDIS_URL=redis://localhost:6379
+S3_BUCKET=${NEW_DATABASE}
+endef
+
+export NEW_ENV
 
 
 define RUN_ARGS
 --net host \
 -v /vagrant:/vagrant \
 -v /odooku:/odooku \
--e DATABASE_URL=${DATABASE_URL} \
--e REDIS_URL=${REDIS_URL} \
--e S3_BUCKET=${S3_BUCKET} \
+-e DATABASE_URL="${DATABASE_URL}" \
+-e REDIS_URL="${REDIS_URL}" \
+-e S3_BUCKET="${S3_BUCKET}" \
 -e S3_DEV_URL="http://localhost:4569" \
--e PORT=${PORT} \
+-e PORT="${PORT}" \
+-e ODOOKU_DEV=true \
 gliderlabs/herokuish
 endef
 
@@ -31,10 +47,18 @@ echo '-----> Importing slug' \
 endef
 
 
+new-env:
+	echo "Creating empty database ${NEW_DATABASE}"
+	@docker exec postgres createdb -U odoo ${NEW_DATABASE}
+	echo "Updating env"
+	@echo "$$NEW_ENV" > /odooku/env.mk
+
+
 build:
 	@docker run \
 		--rm \
 		-it \
+		-e BUILDPACK_URL="${BUILDPACK_URL}" \
 		-v /vagrant/dev:/tmp/app \
 		-v /odooku/cache:/tmp/cache \
 		-v /odooku:/odooku \

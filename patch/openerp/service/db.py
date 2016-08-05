@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE_ODOO file for full copyright and licensing details.
 
 import json
 import logging
@@ -76,8 +75,16 @@ def _initialize_db(id, db_name, demo, lang, user_password, login='admin', countr
         _logger.exception('CREATE DATABASE failed:')
 
 def _create_empty_database(name):
-    # We can't
-    pass
+    db = openerp.sql_db.db_connect('postgres')
+    with closing(db.cursor()) as cr:
+        chosen_template = openerp.tools.config['db_template']
+        cr.execute("SELECT datname FROM pg_database WHERE datname = %s",
+                   (name,))
+        if cr.fetchall():
+            raise DatabaseExists("database %r already exists!" % (name,))
+        else:
+            cr.autocommit(True)     # avoid transaction block
+            cr.execute("""CREATE DATABASE "%s" ENCODING 'unicode' TEMPLATE "%s" """ % (name, chosen_template))
 
 def exp_create_database(db_name, demo, lang, user_password='admin', login='admin', country_code=None):
     """ Similar to exp_create but blocking."""
@@ -87,8 +94,24 @@ def exp_create_database(db_name, demo, lang, user_password='admin', login='admin
     return True
 
 def exp_duplicate_database(db_original_name, db_name):
-    # We can't
-    return False
+    _logger.info('Duplicate database `%s` to `%s`.', db_original_name, db_name)
+    openerp.sql_db.close_db(db_original_name)
+    db = openerp.sql_db.db_connect('postgres')
+    with closing(db.cursor()) as cr:
+        cr.autocommit(True)     # avoid transaction block
+        _drop_conn(cr, db_original_name)
+        cr.execute("""CREATE DATABASE "%s" ENCODING 'unicode' TEMPLATE "%s" """ % (db_name, db_original_name))
+
+    registry = openerp.modules.registry.RegistryManager.new(db_name)
+    with registry.cursor() as cr:
+        # if it's a copy of a database, force generation of a new dbuuid
+        registry['ir.config_parameter'].init(cr, force=True)
+
+    from_fs = openerp.tools.config.filestore(db_original_name)
+    to_fs = openerp.tools.config.filestore(db_name)
+    if os.path.exists(from_fs) and not os.path.exists(to_fs):
+        shutil.copytree(from_fs, to_fs)
+    return True
 
 def _drop_conn(cr, db_name):
     # Try to terminate all other connections that might prevent
@@ -107,8 +130,28 @@ def _drop_conn(cr, db_name):
         pass
 
 def exp_drop(db_name):
-    # We can't
-    return False
+    if db_name not in list_dbs(True):
+        return False
+    openerp.modules.registry.RegistryManager.delete(db_name)
+    openerp.sql_db.close_db(db_name)
+
+    db = openerp.sql_db.db_connect('postgres')
+    with closing(db.cursor()) as cr:
+        cr.autocommit(True) # avoid transaction block
+        _drop_conn(cr, db_name)
+
+        try:
+            cr.execute('DROP DATABASE "%s"' % db_name)
+        except Exception, e:
+            _logger.info('DROP DB: %s failed:\n%s', db_name, e)
+            raise Exception("Couldn't drop database %s: %s" % (db_name, e))
+        else:
+            _logger.info('DROP DB: %s', db_name)
+
+    fs = openerp.tools.config.filestore(db_name)
+    if os.path.exists(fs):
+        shutil.rmtree(fs)
+    return True
 
 def exp_dump(db_name, format):
     with tempfile.TemporaryFile() as t:
@@ -178,6 +221,12 @@ def exp_restore(db_name, data, copy=False):
 
 def restore_db(db, dump_file, copy=False):
     assert isinstance(db, basestring)
+    if exp_db_exist(db):
+        _logger.info('RESTORE DB: %s already exists', db)
+        raise Exception("Database already exists")
+
+    _create_empty_database(db)
+
     filestore_path = None
     with openerp.tools.osutil.tempdir() as dump_dir:
         if zipfile.is_zipfile(dump_file):
@@ -224,8 +273,25 @@ def restore_db(db, dump_file, copy=False):
     _logger.info('RESTORE DB: %s', db)
 
 def exp_rename(old_name, new_name):
-    # We can't
-    return False
+    openerp.modules.registry.RegistryManager.delete(old_name)
+    openerp.sql_db.close_db(old_name)
+
+    db = openerp.sql_db.db_connect('postgres')
+    with closing(db.cursor()) as cr:
+        cr.autocommit(True)     # avoid transaction block
+        _drop_conn(cr, old_name)
+        try:
+            cr.execute('ALTER DATABASE "%s" RENAME TO "%s"' % (old_name, new_name))
+            _logger.info('RENAME DB: %s -> %s', old_name, new_name)
+        except Exception, e:
+            _logger.info('RENAME DB: %s -> %s failed:\n%s', old_name, new_name, e)
+            raise Exception("Couldn't rename database %s to %s: %s" % (old_name, new_name, e))
+
+    old_fs = openerp.tools.config.filestore(old_name)
+    new_fs = openerp.tools.config.filestore(new_name)
+    if os.path.exists(old_fs) and not os.path.exists(new_fs):
+        shutil.move(old_fs, new_fs)
+    return True
 
 def exp_change_admin_password(new_password):
     openerp.tools.config['admin_passwd'] = new_password
@@ -251,7 +317,34 @@ def exp_db_exist(db_name):
 def list_dbs(force=False):
     if not openerp.tools.config['list_db'] and not force:
         raise openerp.exceptions.AccessDenied()
-    return openerp.tools.config.get('db_name', '').split(',')
+
+    # PATCH !!
+    dbs = openerp.tools.config.get('db_name', '').split(',')
+    if dbs:
+        return dbs
+
+    chosen_template = openerp.tools.config['db_template']
+    templates_list = tuple(set(['postgres', chosen_template]))
+    db = openerp.sql_db.db_connect('postgres')
+    with closing(db.cursor()) as cr:
+        try:
+            db_user = openerp.tools.config["db_user"]
+            if not db_user and os.name == 'posix':
+                import pwd
+                db_user = pwd.getpwuid(os.getuid())[0]
+            if not db_user:
+                cr.execute("select usename from pg_user where usesysid=(select datdba from pg_database where datname=%s)", (openerp.tools.config["db_name"],))
+                res = cr.fetchone()
+                db_user = res and str(res[0])
+            if db_user:
+                cr.execute("select datname from pg_database where datdba=(select usesysid from pg_user where usename=%s) and not datistemplate and datallowconn and datname not in %s order by datname", (db_user, templates_list))
+            else:
+                cr.execute("select datname from pg_database where not datistemplate and datallowconn and datname not in %s order by datname", (templates_list,))
+            res = [openerp.tools.ustr(name) for (name,) in cr.fetchall()]
+        except Exception:
+            res = []
+    res.sort()
+    return res
 
 def exp_list(document=False):
     if not openerp.tools.config['list_db']:
