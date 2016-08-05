@@ -15,7 +15,7 @@ def _prefix_envvar(envvar):
     envvar="DATABASE_URL",
     help="[database type]://[username]:[password]@[host]:[port]/[database name]"
 )
-@click.option(
+@click.option(u
     '--database-maxconn', '-c',
     default=20,
     envvar='DATABASE_MAXCONN',
@@ -91,7 +91,7 @@ def main(ctx, database_url, database_maxconn, redis_url,
         host=redis_url.hostname if redis_url else None,
         port=redis_url.port if redis_url else None,
         password=redis_url.password if redis_url else None,
-        db_number=redis_url.path[1:] if redis_url else None
+        db_number=redis_url.path[1:] if redis_url and redis_url.path else None
     )
 
     import openerp
