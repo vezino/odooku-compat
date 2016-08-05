@@ -15,7 +15,7 @@ def _prefix_envvar(envvar):
     envvar="DATABASE_URL",
     help="[database type]://[username]:[password]@[host]:[port]/[database name]"
 )
-@click.option(u
+@click.option(
     '--database-maxconn', '-c',
     default=20,
     envvar='DATABASE_MAXCONN',
