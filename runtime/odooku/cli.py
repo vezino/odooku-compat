@@ -151,10 +151,10 @@ def main(ctx, database_url, database_maxconn, redis_url,
 )
 @click.option(
     '--timeout',
-    default=30,
+    default=25,
     envvar='TIMEOUT',
     type=click.INT,
-    help="Request timeout."
+    help="Request timeout. Keep it below Heroku's timeout."
 )
 @click.pass_context
 def wsgi(ctx, port, workers, threads, timeout):
@@ -223,7 +223,7 @@ def preload(ctx, modules):
     )
 
     from openerp.modules.registry import RegistryManager
-    registry = RegistryManager.new(config['db_name'])
+    registry = RegistryManager.new(config['db_name'], False, None, update_module=True)
 
 
 main.add_command(wsgi)

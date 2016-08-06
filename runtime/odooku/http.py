@@ -1,8 +1,11 @@
-from openerp.http import Root as _Root, OpenERPSession
+import contextlib
+
+import openerp.http
+import openerp.service.db
 from openerp.tools import config
 from openerp.tools.func import lazy_property
-import openerp.service.db
 
+import werkzeug.datastructures
 from werkzeug.contrib.sessions import FilesystemSessionStore
 
 
@@ -14,7 +17,7 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-class Root(_Root):
+class Root(openerp.http.Root):
 
     @lazy_property
     def session_store(self):
@@ -35,7 +38,53 @@ class Root(_Root):
             httprequest.session.db = None
         super(Root, self).setup_db(httprequest)
 
+    def setup_session(self, httprequest):
+        if isinstance(self.session_store, RedisSessionStore):
+            sid = httprequest.args.get('session_id')
+            explicit_session = True
+            if not sid:
+                sid =  httprequest.headers.get("X-Openerp-Session-Id")
+            if not sid:
+                sid = httprequest.cookies.get('session_id')
+                explicit_session = False
+            if sid is None:
+                httprequest.session = self.session_store.new()
+            else:
+                httprequest.session = self.session_store.get(sid)
+            return explicit_session
+        else:
+            return super(Root, self).setup_session(httprequest)
+
 
     def preload(self):
         self._loaded = True
         self.load_addons()
+
+
+class OpenERPSession(openerp.http.OpenERPSession):
+
+    def save_request_data(self):
+        root = openerp.http.root
+        if isinstance(root.session_store, RedisSessionStore):
+            req = request.httprequest
+            if req.files:
+                raise NotImplementedError("Cannot save request data with files")
+
+            self['serialized_request_data'] = {
+                'form': req.form
+            }
+        else:
+            super(OpenERPSession, self).save_request_data()
+
+    @contextlib.contextmanager
+    def load_request_data(self):
+        root = openerp.http.root
+        if isinstance(root.session_store, RedisSessionStore):
+            data = self.pop('serialized_request_data', None)
+            if data:
+                yield werkzeug.datastructures.CombinedMultiDict([data['form']])
+            else:
+                yield None
+        else:
+            with super(OpenERPSession, self).load_request_data() as data:
+                yield data
