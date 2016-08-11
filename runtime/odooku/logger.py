@@ -160,3 +160,7 @@ def setup(debug=False, statsd_host=None):
     OdookuLogger._statsd_host = statsd_host
     logging.setLoggerClass(OdookuLogger)
     logging.addLevelName(25, 'INFO')
+
+    # Prevent odoo from overriding log config
+    import openerp.netsvc
+    openerp.netsvc._logger_init = True

@@ -19,6 +19,11 @@ _logger = logging.getLogger(__name__)
 from odooku.params import params
 TIMEOUT = getattr(params, 'TIMEOUT', 30)
 
+# PATCH !!
+def _get_imbus_db():
+    dbs = openerp.tools.config.get('db_name', '').split(',')
+    return dbs[0] if dbs else "postgres"
+
 
 #----------------------------------------------------------
 # Bus
@@ -66,8 +71,7 @@ class ImBus(models.Model):
             # and the longpolling will return no notification.
             def notify():
                 # PATCH !!
-                db_name = tools.config['db_name'].split(',')[0]
-                with openerp.sql_db.db_connect(db_name).cursor() as cr:
+                with openerp.sql_db.db_connect(_get_imbus_db()).cursor() as cr:
                     cr.execute("notify imbus, %s", (json_dump(list(channels)),))
             self._cr.after('commit', notify)
 
@@ -150,9 +154,9 @@ class ImDispatch(object):
     def loop(self):
         """ Dispatch postgres notifications to the relevant polling threads/greenlets """
         _logger.info("Bus.loop listen imbus on db postgres")
+
         # PATCH !!
-        db_name = tools.config['db_name'].split(',')[0]
-        with openerp.sql_db.db_connect(db_name).cursor() as cr:
+        with openerp.sql_db.db_connect(_get_imbus_db()).cursor() as cr:
             conn = cr._cnx
             cr.execute("listen imbus")
             cr.commit();
@@ -172,7 +176,6 @@ class ImDispatch(object):
                         event.set()
 
     def run(self):
-        time.sleep(TIMEOUT)
         while True:
             try:
                 self.loop()

@@ -36,5 +36,5 @@ class BusController(openerp.http.Controller):
             raise Exception("bus.Bus only string channels are allowed.")
         if request.registry.in_test_mode():
             raise openerp.exceptions.UserError("bus.Bus not available in test mode")
-        # PATCH
+        # PATCH !!
         return self._poll(request.db, channels[:], last, options)

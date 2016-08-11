@@ -108,7 +108,7 @@ def main(ctx, database_url, database_maxconn, redis_url,
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
     config['addons_path'] = addons
-    config['db_name'] = database_url.path[1:]
+    config['db_name'] = database_url.path[1:] if database_url.path else None
     config['db_user'] = database_url.username
     config['db_password'] = database_url.password
     config['db_host'] = database_url.hostname
