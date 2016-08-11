@@ -29,6 +29,7 @@ define RUN_ARGS
 -e S3_BUCKET="${S3_BUCKET}" \
 -e S3_DEV_URL="http://localhost:4569" \
 -e PORT="${PORT}" \
+-e ODOOKU_STATSD_HOST="127.0.0.1:8125" \
 gliderlabs/herokuish
 endef
 
@@ -72,6 +73,7 @@ run-web:
 	-@docker rm -f -v web.1
 	@docker run \
 		-d \
+		-m 512M \
 		--name web.1 \
 		${RUN_ARGS} \
 		bin/bash -c \
@@ -84,6 +86,7 @@ run-worker:
 	-@docker rm -f  -v worker.1
 	@docker run \
 		-d \
+		-m 512M \
 		--name worker.1 \
 		${RUN_ARGS} \
 		bin/bash -c \

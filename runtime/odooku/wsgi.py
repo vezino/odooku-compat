@@ -11,7 +11,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
             self,
             port,
             workers=3,
-            threads=2,
+            threads=20,
             interface='0.0.0.0',
             worker_class='gthread',
             logger_class='odooku.logger.GunicornLogger',
@@ -24,7 +24,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
             worker_class=worker_class,
             logger_class=logger_class,
             # Preloading is not desired.
-            preload_app=False,
+            preload_app=False
         )
 
         self.options.update(options)

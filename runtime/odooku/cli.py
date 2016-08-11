@@ -67,13 +67,17 @@ def _prefix_envvar(envvar):
     is_flag=True,
     envvar=_prefix_envvar('DEV')
 )
+@click.option(
+    '--statsd-host',
+    envvar=_prefix_envvar('STATSD_HOST')
+)
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_dev_url,
-        addons, demo_data, debug, dev):
+        addons, demo_data, debug, dev, statsd_host):
 
-    from odooku.logger import setup_logger
-    setup_logger(debug=debug)
+    import odooku.logger
+    odooku.logger.setup(debug=debug, statsd_host=statsd_host)
 
     # Setup S3
     import odooku.s3
@@ -138,21 +142,21 @@ def main(ctx, database_url, database_maxconn, redis_url,
 @click.option(
     '--workers', '-w',
     default=3,
-    envvar='WORKERS',
+    envvar=_prefix_envvar('WORKERS'),
     type=click.INT,
     help="Number of wsgi workers to run."
 )
 @click.option(
     '--threads', '-t',
-    default=2,
-    envvar='THREADS',
+    default=20,
+    envvar=_prefix_envvar('THREADS'),
     type=click.INT,
     help="Number of threads per wsgi worker, should be a minimum of 2."
 )
 @click.option(
     '--timeout',
     default=25,
-    envvar='TIMEOUT',
+    envvar=_prefix_envvar('TIMEOUT'),
     type=click.INT,
     help="Request timeout. Keep it below Heroku's timeout."
 )
@@ -188,7 +192,7 @@ def wsgi(ctx, port, workers, threads, timeout):
 @click.option(
     '--workers', '-w',
     default=2,
-    envvar='WORKERS',
+    envvar=_prefix_envvar('WORKERS'),
     type=click.INT,
     help="Number of cron workers to run."
 )

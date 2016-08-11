@@ -117,6 +117,7 @@ class ImDispatch(object):
     def poll(self, dbname, channels, last, options=None, timeout=TIMEOUT):
         if options is None:
             options = {}
+        
         # Dont hang ctrl-c for a poll request, we need to bypass private
         # attribute access because we dont know before starting the thread that
         # it will handle a longpolling request
