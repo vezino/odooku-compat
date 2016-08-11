@@ -115,6 +115,7 @@ def main(ctx, database_url, database_maxconn, redis_url,
     config['db_port'] = database_url.port
     config['db_maxconn'] = database_maxconn
 
+    config['demo'] = {}
     config['without_demo'] = 'all' if not demo_data else ''
     config['debug'] = debug
     config['dev_mode'] = dev

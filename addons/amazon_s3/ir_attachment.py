@@ -73,6 +73,7 @@ class ir_attachment(osv.osv):
             if not count:
                 try:
                     _logger.info("S3 (%s) delete '%s'", s3_pool.bucket, fname)
+                    _logger.increment("s3.delete", 1)
                     s3_pool.client.delete_object(Bucket=s3_pool.bucket, Key=fname)
                 except ClientError as e:
                     if e.response['Error']['Code'] != "NoSuchKey":
@@ -82,6 +83,7 @@ class ir_attachment(osv.osv):
     def _s3_get(self, cr, uid, fname):
         try:
             _logger.info("S3 (%s) get '%s'", s3_pool.bucket, fname)
+            _logger.increment("s3.get", 1)
             r = s3_pool.client.get_object(Bucket=s3_pool.bucket, Key=fname)
         except ClientError as e:
             _logger.warning("S3 (%s) get '%s'", s3_pool.bucket, fname, exc_info=True)
@@ -99,6 +101,7 @@ class ir_attachment(osv.osv):
         bin_data = value.decode('base64')
         try:
             _logger.info("S3 (%s) put '%s'", s3_pool.bucket, fname)
+            _logger.increment("s3.put", 1)
             s3_pool.client.put_object(Bucket=s3_pool.bucket, Key=fname, Body=bin_data)
         except ClientError:
             _logger.warning("S3 (%s) put '%s'", s3_pool.bucket, fname, exc_info=True)

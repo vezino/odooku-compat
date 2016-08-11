@@ -65,6 +65,7 @@ class ImBus(models.Model):
             # transaction is not commited yet, there will be nothing to fetch,
             # and the longpolling will return no notification.
             def notify():
+                # PATCH !!
                 db_name = tools.config['db_name'].split(',')[0]
                 with openerp.sql_db.db_connect(db_name).cursor() as cr:
                     cr.execute("notify imbus, %s", (json_dump(list(channels)),))
@@ -117,7 +118,7 @@ class ImDispatch(object):
     def poll(self, dbname, channels, last, options=None, timeout=TIMEOUT):
         if options is None:
             options = {}
-        
+
         # Dont hang ctrl-c for a poll request, we need to bypass private
         # attribute access because we dont know before starting the thread that
         # it will handle a longpolling request
@@ -149,6 +150,7 @@ class ImDispatch(object):
     def loop(self):
         """ Dispatch postgres notifications to the relevant polling threads/greenlets """
         _logger.info("Bus.loop listen imbus on db postgres")
+        # PATCH !!
         db_name = tools.config['db_name'].split(',')[0]
         with openerp.sql_db.db_connect(db_name).cursor() as cr:
             conn = cr._cnx
