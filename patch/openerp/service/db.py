@@ -32,8 +32,9 @@ class DatabaseExists(Warning):
 #----------------------------------------------------------
 
 def check_super(passwd):
-    if passwd and passwd == openerp.tools.config['admin_passwd']:
-        return True
+    if openerp.tools.config['admin_passwd'] is not None:
+        if passwd and passwd == openerp.tools.config['admin_passwd']:
+            return True
     raise openerp.exceptions.AccessDenied()
 
 # This should be moved to openerp.modules.db, along side initialize().
@@ -74,17 +75,17 @@ def _initialize_db(id, db_name, demo, lang, user_password, login='admin', countr
     except Exception, e:
         _logger.exception('CREATE DATABASE failed:')
 
-def _create_empty_database(name):
+def _create_empty_database(db_name):
     db = openerp.sql_db.db_connect('postgres')
     with closing(db.cursor()) as cr:
         chosen_template = openerp.tools.config['db_template']
         cr.execute("SELECT datname FROM pg_database WHERE datname = %s",
-                   (name,))
+                   (db_name,))
         if cr.fetchall():
-            raise DatabaseExists("database %r already exists!" % (name,))
+            raise DatabaseExists("database %r already exists!" % (db_name,))
         else:
             cr.autocommit(True)     # avoid transaction block
-            cr.execute("""CREATE DATABASE "%s" ENCODING 'unicode' TEMPLATE "%s" """ % (name, chosen_template))
+            cr.execute("""CREATE DATABASE "%s" ENCODING 'unicode' TEMPLATE "%s" """ % (db_name, chosen_template))
 
 def exp_create_database(db_name, demo, lang, user_password='admin', login='admin', country_code=None):
     """ Similar to exp_create but blocking."""
@@ -183,11 +184,25 @@ def dump_db(db_name, stream, backup_format='zip'):
     cmd = ['pg_dump', '--no-owner']
     cmd.append(db_name)
 
+    registry = openerp.modules.registry.RegistryManager.new(db_name)
     if backup_format == 'zip':
         with openerp.tools.osutil.tempdir() as dump_dir:
-            filestore = openerp.tools.config.filestore(db_name)
-            if os.path.exists(filestore):
-                shutil.copytree(filestore, os.path.join(dump_dir, 'filestore'))
+            # PATCH !!
+            # Instead of copying the filestore directory, read
+            # all attachments from filestore/s3-bucket.
+            attachment = registry['ir.attachment']
+            # For some reason we can't search installed attachments...
+            with registry.cursor() as cr:
+                cr.execute("SELECT id FROM ir_attachment")
+                for id in [rec['id'] for rec in cr.dictfetchall()]:
+                    rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
+                    full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
+                    bin_value = rec.datas.decode('base64')
+                    if not os.path.exists(os.path.dirname(full_path)):
+                        os.makedirs(os.path.dirname(full_path))
+                    with open(full_path, 'wb') as fp:
+                        fp.write(bin_value)
+
             with open(os.path.join(dump_dir, 'manifest.json'), 'w') as fh:
                 db = openerp.sql_db.db_connect(db_name)
                 with db.cursor() as cr:
@@ -219,13 +234,31 @@ def exp_restore(db_name, data, copy=False):
         os.unlink(data_file.name)
     return True
 
-def restore_db(db, dump_file, copy=False):
-    assert isinstance(db, basestring)
-    if exp_db_exist(db):
-        _logger.info('RESTORE DB: %s already exists', db)
-        raise Exception("Database already exists")
+def restore_db(db_name, dump_file, copy=False):
+    assert isinstance(db_name, basestring)
 
-    _create_empty_database(db)
+    dbs = openerp.tools.config.get('db_name', '').split(',')
+    if db_name in dbs:
+        if copy:
+            raise Exception("Can only move in single-db mode")
+        # Running in mono db mode.
+        openerp.modules.registry.RegistryManager.delete(db_name)
+        db = openerp.sql_db.db_connect(db_name)
+        with closing(db.cursor()) as cr:
+            cr.autocommit(True)
+            cr.execute('DROP SCHEMA public CASCADE')
+            cr.execute('CREATE SCHEMA public')
+            cr.execute('GRANT ALL ON SCHEMA public TO public')
+
+        openerp.sql_db.close_db(db_name)
+
+    else:
+        # Running in regular db mode
+        if exp_db_exist(db_name):
+            _logger.info('RESTORE DB: %s already exists', db_name)
+            raise Exception("Database already exists")
+
+        _create_empty_database(db_name)
 
     filestore_path = None
     with openerp.tools.osutil.tempdir() as dump_dir:
@@ -248,20 +281,29 @@ def restore_db(db, dump_file, copy=False):
             pg_args = ['--no-owner', dump_file]
 
         args = []
-        args.append('--dbname=' + db)
+        args.append('--dbname=' + db_name)
         pg_args = args + pg_args
 
         if openerp.tools.exec_pg_command(pg_cmd, *pg_args):
             raise Exception("Couldn't restore database")
 
-        registry = openerp.modules.registry.RegistryManager.new(db)
+        registry = openerp.modules.registry.RegistryManager.new(db_name)
         with registry.cursor() as cr:
             if copy:
                 # if it's a copy of a database, force generation of a new dbuuid
                 registry['ir.config_parameter'].init(cr, force=True)
             if filestore_path:
-                filestore_dest = registry['ir.attachment']._filestore(cr, SUPERUSER_ID)
-                shutil.move(filestore_path, filestore_dest)
+                # PATCH !!
+                # Instead of copying the filestore directory, read
+                # all attachments from filestore/s3-bucket.
+                attachment = registry['ir.attachment']
+                # For some reason we can't search installed attachments...
+                cr.execute("SELECT id FROM ir_attachment")
+                for id in [rec['id'] for rec in cr.dictfetchall()]:
+                    rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
+                    full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
+                    value = open(full_path,'rb').read().encode('base64')
+                    rec.write({'datas': value})
 
             if openerp.tools.config['unaccent']:
                 try:
@@ -270,7 +312,7 @@ def restore_db(db, dump_file, copy=False):
                 except psycopg2.Error:
                     pass
 
-    _logger.info('RESTORE DB: %s', db)
+    _logger.info('RESTORE DB: %s', db_name)
 
 def exp_rename(old_name, new_name):
     openerp.modules.registry.RegistryManager.delete(old_name)
@@ -294,15 +336,14 @@ def exp_rename(old_name, new_name):
     return True
 
 def exp_change_admin_password(new_password):
-    openerp.tools.config['admin_passwd'] = new_password
-    openerp.tools.config.save()
-    return True
+    # Won't have any effect
+    return False
 
 def exp_migrate_databases(databases):
-    for db in databases:
-        _logger.info('migrate database %s', db)
+    for db_name in databases:
+        _logger.info('migrate database %s', db_name)
         openerp.tools.config['update']['base'] = True
-        openerp.modules.registry.RegistryManager.new(db, force_demo=False, update_module=True)
+        openerp.modules.registry.RegistryManager.new(db_name, force_demo=False, update_module=True)
     return True
 
 #----------------------------------------------------------

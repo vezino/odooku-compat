@@ -58,6 +58,11 @@ def _prefix_envvar(envvar):
     envvar=_prefix_envvar('DEMO_DATA')
 )
 @click.option(
+    '--admin-password',
+    envvar=_prefix_envvar('ADMIN_PASSWORD'),
+    help="Odoo admin password."
+)
+@click.option(
     '--debug',
     is_flag=True,
     envvar=_prefix_envvar('DEBUG')
@@ -74,7 +79,7 @@ def _prefix_envvar(envvar):
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_dev_url,
-        addons, demo_data, debug, dev, statsd_host):
+        addons, demo_data, admin_password, debug, dev, statsd_host):
 
     import odooku.logger
     odooku.logger.setup(debug=debug, statsd_host=statsd_host)
@@ -117,6 +122,7 @@ def main(ctx, database_url, database_maxconn, redis_url,
 
     config['demo'] = {}
     config['without_demo'] = 'all' if not demo_data else ''
+    config['admin_passwd'] = admin_password
     config['debug'] = debug
     config['dev_mode'] = dev
     config['list_db'] = False
