@@ -1,7 +1,9 @@
 import sys
 import logging
 import socket
+import traceback
 
+import logging
 from logging.config import dictConfig
 
 from gunicorn.glogging import Logger as BaseGunicornLogger
@@ -32,6 +34,24 @@ class OdookuLogger(logging.Logger):
                 pass
             else:
                 self._statsd_sock = sock
+
+    def critical(self, msg, *args, **kwargs):
+        self.log(logging.CRITICAL, msg, *args, **kwargs)
+
+    def error(self, msg, *args, **kwargs):
+        self.log(logging.ERROR, msg, *args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        self.log(logging.WARNING, msg, *args, **kwargs)
+
+    def info(self, msg, *args, **kwargs):
+        self.log(logging.INFO, msg, *args, **kwargs)
+
+    def debug(self, msg, *args, **kwargs):
+        self.log(logging.DEBUG, msg, *args, **kwargs)
+
+    def exception(self, msg, *args, **kwargs):
+        self.log(logging.ERROR, msg, *args, **kwargs)
 
     def log(self, lvl, msg, *args, **kwargs):
         try:
@@ -77,27 +97,42 @@ class OdookuLogger(logging.Logger):
             logging.Logger.warning(self, "Failed to log to statsd", exc_info=True)
 
 
-class GunicornLogger(OdookuLogger, BaseGunicornLogger):
+class GunicornLogger(BaseGunicornLogger):
+
+    def __init__(self, cfg):
+        super(GunicornLogger, self).__init__(cfg)
+        self._logger = logging.getLogger('gunicorn')
 
     def setup(self, cfg):
         # Do not setup, this will override our logging config
         pass
 
+    def log(self, lvl, msg, *args, **kwargs):
+        if isinstance(lvl, basestring):
+            lvl = self.LOG_LEVELS.get(lvl.lower(), logging.INFO)
+        self._logger.log(lvl, msg, *args, **kwarg)
+
+    def info(self, msg, *args, **kwargs):
+        self._logger.info(msg, *args, **kwargs)
+
+    def debug(self, msg, *args, **kwargs):
+        self._logger.debug(msg, *args, **kwargs)
+
     def critical(self, msg, *args, **kwargs):
-        super(GunicornLogger, self).critical(msg, *args, **kwargs)
-        self.increment("gunicorn.log.critical", 1)
+        self._logger.critical(msg, *args, **kwargs)
+        self._logger.increment("gunicorn.log.critical", 1)
 
     def error(self, msg, *args, **kwargs):
-        super(GunicornLogger, self).error(msg, *args, **kwargs)
-        self.increment("gunicorn.log.error", 1)
+        self._logger.error(msg, *args, **kwargs)
+        self._logger.increment("gunicorn.log.error", 1)
 
     def warning(self, msg, *args, **kwargs):
-        super(GunicornLogger, self).warning(msg, *args, **kwargs)
-        self.increment("gunicorn.log.warning", 1)
+        self._logger.warning(msg, *args, **kwargs)
+        self._logger.increment("gunicorn.log.warning", 1)
 
     def exception(self, msg, *args, **kwargs):
-        super(GunicornLogger, self).exception(msg, *args, **kwargs)
-        self.increment("gunicorn.log.exception", 1)
+        self._logger.error(msg, *args, **kwargs)
+        self._logger.increment("gunicorn.log.exception", 1)
 
     def access(self, resp, req, environ, request_time):
 
@@ -107,18 +142,18 @@ class GunicornLogger(OdookuLogger, BaseGunicornLogger):
         if isinstance(status, str):
             status = int(status.split(None, 1)[0])
 
-        self.histogram("gunicorn.request.duration", duration_in_ms)
-        self.increment("gunicorn.requests", 1)
-        self.increment("gunicorn.request.status.%d" % status, 1)
+        self._logger.histogram("gunicorn.request.duration", duration_in_ms)
+        self._logger.increment("gunicorn.requests", 1)
+        self._logger.increment("gunicorn.request.status.%d" % status, 1)
 
-        # Regular logging
-        safe_atoms = self.atoms_wrapper_class(self.atoms(resp, req, environ,
-            request_time))
+        safe_atoms = self.atoms_wrapper_class(
+            self.atoms(resp, req, environ, request_time)
+        )
 
         try:
-            super(GunicornLogger, self).info(self.cfg.access_log_format % safe_atoms)
+            self.info(self.cfg.access_log_format % safe_atoms)
         except:
-            super(GunicornLogger, self).error(traceback.format_exc())
+            self.error(traceback.format_exc())
 
 
 def setup(debug=False, statsd_host=None):
@@ -127,16 +162,6 @@ def setup(debug=False, statsd_host=None):
         version=1,
         disable_existing_loggers=True,
         loggers={
-            'gunicorn.error': {
-                'level': level,
-                'handlers': ['console'],
-                'qualname': 'gunicorn.error'
-            },
-            'gunicorn.access': {
-                'level': level,
-                'handlers': ['console'],
-                'qualname': 'gunicorn.access'
-            },
             '': {
                 'level': level,
                 'handlers': ['console']
