@@ -83,7 +83,7 @@ run-web:
 
 
 run-worker:
-	-@docker rm -f  -v worker.1
+	-@docker rm -f -v worker.1
 	@docker run \
 		-d \
 		-m 512M \
