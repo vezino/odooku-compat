@@ -197,7 +197,7 @@ def dump_db(db_name, stream, backup_format='zip'):
                 for id in [rec['id'] for rec in cr.dictfetchall()]:
                     rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
                     full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
-                    bin_value = rec.datas.decode('base64')
+                    bin_value = rec.datas
                     if not os.path.exists(os.path.dirname(full_path)):
                         os.makedirs(os.path.dirname(full_path))
                     with open(full_path, 'wb') as fp:
@@ -303,7 +303,7 @@ def restore_db(db_name, dump_file, copy=False):
                     rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
                     full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
                     if os.path.exists(full_path):
-                        value = open(full_path,'rb').read().encode('base64')
+                        value = open(full_path,'rb').read()
                         rec.write({'datas': value})
 
             if openerp.tools.config['unaccent']:
