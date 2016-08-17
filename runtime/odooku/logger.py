@@ -135,7 +135,7 @@ class GunicornLogger(BaseGunicornLogger):
         self._logger.increment("gunicorn.log.exception", 1)
 
     def access(self, resp, req, environ, request_time):
-
+        print 'access->'
         # Metrics
         duration_in_ms = request_time.seconds * 1000 + float(request_time.microseconds) / 10 ** 3
         status = resp.status
@@ -146,14 +146,14 @@ class GunicornLogger(BaseGunicornLogger):
         self._logger.increment("gunicorn.requests", 1)
         self._logger.increment("gunicorn.request.status.%d" % status, 1)
 
-        safe_atoms = self.atoms_wrapper_class(
-            self.atoms(resp, req, environ, request_time)
-        )
-
         try:
+            safe_atoms = self.atoms_wrapper_class(
+                self.atoms(resp, req, environ, request_time)
+            )
             self.info(self.cfg.access_log_format % safe_atoms)
         except:
             self.error(traceback.format_exc())
+        print '<-access'
 
 
 def setup(debug=False, statsd_host=None):
