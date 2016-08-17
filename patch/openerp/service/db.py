@@ -304,7 +304,7 @@ def restore_db(db_name, dump_file, copy=False):
                     full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
                     if os.path.exists(full_path):
                         value = open(full_path,'rb').read()
-                        rec.write({'datas': value})
+                        rec.write({'datas': value, 'mimetype': rec.mimetype})
 
             if openerp.tools.config['unaccent']:
                 try:
