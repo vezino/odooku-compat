@@ -1,2 +1,2 @@
 # odooku-compat
-Odooku compatibility patches and addons
+Odooku compatibility patches and addons.
