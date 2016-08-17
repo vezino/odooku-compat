@@ -302,8 +302,9 @@ def restore_db(db_name, dump_file, copy=False):
                 for id in [rec['id'] for rec in cr.dictfetchall()]:
                     rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
                     full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
-                    value = open(full_path,'rb').read().encode('base64')
-                    rec.write({'datas': value})
+                    if os.path.exists(full_path):
+                        value = open(full_path,'rb').read().encode('base64')
+                        rec.write({'datas': value})
 
             if openerp.tools.config['unaccent']:
                 try:
