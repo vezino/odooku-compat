@@ -72,16 +72,13 @@ class S3Pool(object):
 
 pool = None
 
-def configure(bucket=None, aws_access_key_id=None,
-        aws_secret_access_key=None, dev_url=None):
+def configure(bucket=None, **options):
 
     global pool
     if bucket:
         _pool = S3Pool(
             bucket,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            dev_url=dev_url
+            **options
         )
 
         if _pool.check():

@@ -16,16 +16,29 @@ def _prefix_envvar(envvar):
     help="[database type]://[username]:[password]@[host]:[port]/[database name]"
 )
 @click.option(
-    '--database-maxconn', '-c',
-    default=20,
-    envvar='DATABASE_MAXCONN',
+    '--database-maxconn',
+    default=6, # 20 / 3
+    envvar=_prefix_envvar("DATABASE_MAXCONN"),
     type=click.INT,
-    help="Maximum number of database connections per worker. See Heroku Postgres plans."
+    help="""
+    Maximum number of database connections per worker.
+    See Heroku Postgres plans.
+    """
 )
 @click.option(
     '--redis-url',
     envvar="REDIS_URL",
     help="redis://[password]@[host]:[port]/[database number]"
+)
+@click.option(
+    '--redis-maxconn',
+    default=6, # 20 / 3
+    envvar=_prefix_envvar("REDIS_MAXCONN"),
+    type=click.INT,
+    help="""
+    Maximum number of redis connections per worker.
+    See Heroku Redis plans.
+    """
 )
 @click.option(
     '--aws-access-key-id',
@@ -77,7 +90,7 @@ def _prefix_envvar(envvar):
     envvar=_prefix_envvar('STATSD_HOST')
 )
 @click.pass_context
-def main(ctx, database_url, database_maxconn, redis_url,
+def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_dev_url,
         addons, demo_data, admin_password, debug, dev, statsd_host):
 
@@ -100,7 +113,8 @@ def main(ctx, database_url, database_maxconn, redis_url,
         host=redis_url.hostname if redis_url else None,
         port=redis_url.port if redis_url else None,
         password=redis_url.password if redis_url else None,
-        db_number=redis_url.path[1:] if redis_url and redis_url.path else None
+        db_number=redis_url.path[1:] if redis_url and redis_url.path else None,
+        maxconn=redis_maxconn
     )
 
     import openerp
