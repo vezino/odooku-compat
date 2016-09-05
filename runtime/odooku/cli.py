@@ -242,13 +242,20 @@ def cron(ctx, workers, once):
     default=['web'],
     envvar=_prefix_envvar('PRELOAD')
 )
-def preload(ctx, modules):
+@click.option(
+    '--new-dbuuid',
+    is_flag=True
+)
+def preload(ctx, modules, new_dbuuid):
     config = (
         ctx.obj['config']
     )
 
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'], False, None, update_module=True)
+    if new_dbuuid:
+        registry['ir.config_parameter'].init(cr, force=True)
+
 
 
 main.add_command(wsgi)
