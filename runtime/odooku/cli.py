@@ -126,8 +126,9 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     from openerp.tools import config
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
+    db_name = database_url.path[1:] if database_url.path else ''
     config['addons_path'] = addons
-    config['db_name'] = database_url.path[1:] if database_url.path else None
+    config['db_name'] = db_name
     config['db_user'] = database_url.username
     config['db_password'] = database_url.password
     config['db_host'] = database_url.hostname
@@ -139,7 +140,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['admin_passwd'] = admin_password
     config['debug'] = debug
     config['dev_mode'] = dev
-    config['list_db'] = False
+    config['list_db'] = not bool(db_name)
 
     ctx.obj.update({
         'debug': debug,
