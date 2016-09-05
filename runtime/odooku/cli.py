@@ -255,7 +255,8 @@ def preload(ctx, modules, new_dbuuid):
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'], False, None, update_module=True)
     if new_dbuuid:
-        registry['ir.config_parameter'].init(cr, force=True)
+        with registry.cursor() as cr:
+            registry['ir.config_parameter'].init(cr, force=True)
 
 
 
