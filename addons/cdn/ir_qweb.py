@@ -34,5 +34,5 @@ class QWeb(orm.AbstractModel):
                 else:
                     # /modules/<module>/static
                     value = s3_pool.get_url('modules', value[1:])
-        raise Exception("WTF")
+        
         return super(QWeb, self).render_attribute(element, name, value, qwebcontext)
