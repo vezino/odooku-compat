@@ -25,13 +25,15 @@ define RUN_ARGS
 --net host \
 -v /vagrant:/vagrant \
 -v /odooku:/odooku \
--e DATABASE_URL="${DATABASE_URL}" \
--e REDIS_URL="${REDIS_URL}" \
--e S3_BUCKET="${S3_BUCKET}" \
--e S3_DEV_URL="http://localhost:4569" \
--e PORT="${PORT}" \
--e ODOOKU_STATSD_HOST="127.0.0.1:8125" \
--e ODOOKU_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+-e DATABASE_URL=${DATABASE_URL} \
+-e REDIS_URL=${REDIS_URL} \
+-e S3_BUCKET=${S3_BUCKET} \
+-e S3_ENDPOINT_URL=http://localhost:4569 \
+-e AWS_ACCESS_KEY_ID=foobar \
+-e AWS_SECRET_ACCESS_KEY=foobar \
+-e PORT=${PORT} \
+-e ODOOKU_STATSD_HOST=127.0.0.1:8125 \
+-e ODOOKU_ADMIN_PASSWORD=${ADMIN_PASSWORD} \
 gliderlabs/herokuish
 endef
 
@@ -45,24 +47,32 @@ echo '-----> Importing slug' \
 ;cp -a /vagrant/addons/. /app/.heroku/odoo/compat_addons/ \
 ;echo '-----> Applying patches' \
 ;cp -a /vagrant/patch/addons/. /app/.heroku/odoo/addons/ \
-;cp -a /vagrant/patch/openerp/. /app/.heroku/odoo/lib/python2.7/site-packages/openerp/
+;cp -a /vagrant/patch/openerp/. /app/.heroku/odoo/lib/python2.7/site-packages/openerp/ \
+&& echo '-----> Enabling dev mode' \
+&& export ODOOKU_DEV=true
 endef
 
 
 new-env:
 	@echo "Creating empty database ${NEW_DATABASE}"
 	@docker exec postgres createdb -U odoo ${NEW_DATABASE}
+	@echo "Creating empty s3 bucket ${NEW_DATABASE}"
+	@mkdir -p /odooku/filestore/${NEW_DATABASE}
 	@echo "Updating env"
 	@echo "Admin password: ${NEW_DATABASE}"
 	@echo "$$NEW_ENV" > /odooku/env.mk
 
 
 build:
+	@echo "Using local commit $$(git rev-parse HEAD)"
+	-@rm -rf /odooku/app
+	@mkdir -p /odooku/app
+	@git archive --format=tar HEAD | (cd /odooku/app/ && tar xf -)
 	@docker run \
 		--rm \
 		-it \
-		-e BUILDPACK_URL="${BUILDPACK_URL}" \
-		-v /vagrant/dev:/tmp/app \
+		-e BUILDPACK_URL=${BUILDPACK_URL} \
+		-v /odooku/app:/tmp/app \
 		-v /odooku/cache:/tmp/cache \
 		-v /odooku:/odooku \
 		gliderlabs/herokuish \
@@ -76,7 +86,6 @@ run-web:
 	-@docker rm -f -v web.1
 	@docker run \
 		-d \
-		-m 512M \
 		--name web.1 \
 		${RUN_ARGS} \
 		bin/bash -c \
@@ -86,10 +95,9 @@ run-web:
 
 
 run-worker:
-	-@docker rm -f -v worker.1
+	-@docker rm -f  -v worker.1
 	@docker run \
 		-d \
-		-m 512M \
 		--name worker.1 \
 		${RUN_ARGS} \
 		bin/bash -c \
@@ -113,6 +121,18 @@ psql:
 		--rm \
 		-it \
 		--net host \
+		-v /vagrant/data:/tmp \
 		-e PGPASSWORD=${DB_PASSWORD} \
 		postgres:9.5 \
 		psql -U ${DB_USER} -w -h ${DB_HOST} -p ${DB_PORT} -d ${DB_NAME}
+
+
+pg-restore:
+	@docker run \
+		--rm \
+		-it \
+		--net host \
+		-v /vagrant:/tmp \
+		-e PGPASSWORD=${DB_PASSWORD} \
+		postgres:9.5 \
+		pg_restore -U ${DB_USER} -w -h ${DB_HOST} -p ${DB_PORT} -d ${DB_NAME} --no-owner /tmp/${DB_NAME}.dump

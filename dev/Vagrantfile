@@ -4,9 +4,13 @@
 
 $TRUSTY = <<SCRIPT
 
+# Update and install git
+sudo apt-get -y update \
+  && sudo apt-get -y install git
+
 # Herokuish
 sudo docker pull gliderlabs/herokuish
-sudo mkdir -p /odooku/cache /odooku/build
+sudo mkdir -p /odooku /odooku/cache /odooku/app /odooku/filestore
 sudo chown -R $USER /odooku
 touch /odooku/env.mk
 
@@ -33,8 +37,10 @@ sudo docker run \
   --name s3 \
   --restart always \
   -d \
+  -v /odooku/filestore:/fakes3_root \
   --net host \
   lphoward/fake-s3
+
 
 # Grafana
 sudo docker run \
@@ -47,7 +53,7 @@ sudo docker run \
   kamon/grafana_graphite
 
 sleep 10
-cd /vagrant/dev && sudo make new-env
+cd /vagrant && sudo make new-env
 
 SCRIPT
 
@@ -62,11 +68,12 @@ Vagrant.configure(2) do |config|
   # https://docs.vagrantup.com.
 
   config.vm.box = "box-cutter/ubuntu1404-docker"
-  config.vm.synced_folder '..', '/vagrant'
+  config.vm.synced_folder '../', '/vagrant'
   config.vm.provision "shell", inline: $TRUSTY, privileged: false
 
   config.vm.network "forwarded_port", guest: 8000, host: 8000
   config.vm.network "forwarded_port", guest: 8001, host: 8001
+  config.vm.network "forwarded_port", guest: 4569, host: 4569
   config.vm.provider "virtualbox" do |vb|
      vb.memory = 2048
      vb.cpus = 2

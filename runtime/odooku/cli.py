@@ -1,11 +1,9 @@
 import click
 import urlparse
-
+import os
 
 from odooku.params import params
-
-def _prefix_envvar(envvar):
-    return 'ODOOKU_%s' % envvar
+from odooku.utils import prefix_envvar
 
 
 @click.group()
@@ -18,7 +16,7 @@ def _prefix_envvar(envvar):
 @click.option(
     '--database-maxconn',
     default=6, # 20 / 3
-    envvar=_prefix_envvar("DATABASE_MAXCONN"),
+    envvar=prefix_envvar("DATABASE_MAXCONN"),
     type=click.INT,
     help="""
     Maximum number of database connections per worker.
@@ -33,7 +31,7 @@ def _prefix_envvar(envvar):
 @click.option(
     '--redis-maxconn',
     default=6, # 20 / 3
-    envvar=_prefix_envvar("REDIS_MAXCONN"),
+    envvar=prefix_envvar("REDIS_MAXCONN"),
     type=click.INT,
     help="""
     Maximum number of redis connections per worker.
@@ -56,42 +54,48 @@ def _prefix_envvar(envvar):
     help="S3 bucket for filestore."
 )
 @click.option(
-    '--s3-dev-url',
-    envvar="S3_DEV_URL",
-    help="S3 development url."
+    '--s3-endpoint-url',
+    envvar="S3_ENDPOINT_URL",
+    help="S3 endpoint url."
+)
+@click.option(
+    '--s3-custom-domain',
+    envvar="S3_CUSTOM_DOMAIN",
+    help="S3 custom domain."
 )
 @click.option(
     '--addons',
     required=True,
-    envvar=_prefix_envvar('ADDONS')
+    envvar=prefix_envvar('ADDONS')
 )
 @click.option(
     '--demo-data',
     is_flag=True,
-    envvar=_prefix_envvar('DEMO_DATA')
+    envvar=prefix_envvar('DEMO_DATA')
 )
 @click.option(
     '--admin-password',
-    envvar=_prefix_envvar('ADMIN_PASSWORD'),
+    envvar=prefix_envvar('ADMIN_PASSWORD'),
     help="Odoo admin password."
 )
 @click.option(
     '--debug',
     is_flag=True,
-    envvar=_prefix_envvar('DEBUG')
+    envvar=prefix_envvar('DEBUG')
 )
 @click.option(
     '--dev',
     is_flag=True,
-    envvar=_prefix_envvar('DEV')
+    envvar=prefix_envvar('DEV')
 )
 @click.option(
     '--statsd-host',
-    envvar=_prefix_envvar('STATSD_HOST')
+    envvar=prefix_envvar('STATSD_HOST')
 )
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
-        aws_access_key_id, aws_secret_access_key, s3_bucket, s3_dev_url,
+        aws_access_key_id, aws_secret_access_key, s3_bucket, s3_endpoint_url,
+        s3_custom_domain,
         addons, demo_data, admin_password, debug, dev, statsd_host):
 
     import odooku.logger
@@ -103,7 +107,8 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         bucket=s3_bucket,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
-        dev_url=s3_dev_url
+        endpoint_url=s3_endpoint_url,
+        custom_domain=s3_custom_domain
     )
 
     # Setup Redis
@@ -142,129 +147,30 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['dev_mode'] = dev
     config['list_db'] = not bool(db_name)
 
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Odoo modules at:\n%s" %  "\n".join(openerp.modules.module.ad_paths))
+
     ctx.obj.update({
         'debug': debug,
         'dev': dev,
-        'config': config
+        'config': config,
+        'params': params,
+        'logger': logger,
     })
 
-    import logging
-    _logger = logging.getLogger(__name__)
-    _logger.info("Odoo modules at:\n%s" %  "\n".join(openerp.modules.module.ad_paths))
-
     if dev:
-        _logger.warning("RUNNING IN DEVELOPMENT MODE")
+        logger.warning("RUNNING IN DEVELOPMENT MODE")
 
     if debug:
-        _logger.warning("RUNNING IN DEBUG MODE")
+        logger.warning("RUNNING IN DEBUG MODE")
 
 
-@click.command()
-@click.argument('port', nargs=1)
-@click.option(
-    '--workers', '-w',
-    default=3,
-    envvar=_prefix_envvar('WORKERS'),
-    type=click.INT,
-    help="Number of wsgi workers to run."
-)
-@click.option(
-    '--threads', '-t',
-    default=20,
-    envvar=_prefix_envvar('THREADS'),
-    type=click.INT,
-    help="Number of threads per wsgi worker, should be a minimum of 2."
-)
-@click.option(
-    '--timeout',
-    default=25,
-    envvar=_prefix_envvar('TIMEOUT'),
-    type=click.INT,
-    help="Request timeout. Keep it below Heroku's timeout."
-)
-@click.pass_context
-def wsgi(ctx, port, workers, threads, timeout):
-    debug, dev, config = (
-        ctx.obj['debug'],
-        ctx.obj['dev'],
-        ctx.obj['config']
-    )
-
-    # Patch odoo config
-    config['workers'] = workers
-
-    # Keep track of custom config params
-    params.TIMEOUT = timeout
-    extra_options = {}
-    if dev:
-        extra_options['reload'] = True
-
-    from odooku.wsgi import WSGIServer
-    server = WSGIServer(
-        port,
-        workers=workers,
-        threads=threads,
-        timeout=timeout,
-        **extra_options
-    )
-    server.run()
-
-@click.command()
-@click.pass_context
-@click.option(
-    '--workers', '-w',
-    default=2,
-    envvar=_prefix_envvar('WORKERS'),
-    type=click.INT,
-    help="Number of cron workers to run."
-)
-@click.option(
-    '--once',
-    is_flag=True,
-    envvar=_prefix_envvar('CRON_ONCE')
-)
-def cron(ctx, workers, once):
-    config = (
-        ctx.obj['config']
-    )
-
-    import odooku.cron
-    if once:
-        odooku.cron.run_once()
-    else:
-        odooku.cron.run(workers=workers)
-
-
-@click.command()
-@click.pass_context
-@click.option(
-    '--modules',
-    multiple=True,
-    default=['web'],
-    envvar=_prefix_envvar('PRELOAD')
-)
-@click.option(
-    '--new-dbuuid',
-    is_flag=True
-)
-def preload(ctx, modules, new_dbuuid):
-    config = (
-        ctx.obj['config']
-    )
-
-    from openerp.modules.registry import RegistryManager
-    from openerp.api import Environment
-    registry = RegistryManager.new(config['db_name'], False, None, update_module=True)
-    if new_dbuuid:
-        with Environment.manage():
-            with registry.cursor() as cr:
-                registry['ir.config_parameter'].init(cr, force=True)
-
-
-
-main.add_command(wsgi)
-main.add_command(cron)
-main.add_command(preload)
+import odooku.commands
+for name in dir(odooku.commands):
+    member = getattr(odooku.commands, name)
+    if isinstance(member, click.BaseCommand):
+        main.add_command(member)
 
 
 def entrypoint():

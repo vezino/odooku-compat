@@ -46,7 +46,7 @@ class ir_attachment(osv.osv):
             attach = self.browse(cr, uid, id, context=context)
             s3_exists = True
             try:
-                self._s3_put(cr, uid, attach.store_fname)
+                self._s3_put(cr, uid, attach.store_fname, content_type=attach.mimetype)
             except S3Error:
                 s3_exists = False
             self.write(cr, SUPERUSER_ID, [id], { 's3_exists': s3_exists }, context=context)
@@ -71,22 +71,28 @@ class ir_attachment(osv.osv):
             cr.execute("SELECT COUNT(*) FROM ir_attachment WHERE store_fname = %s", (fname,))
             count = cr.fetchone()[0]
             if not count:
+                key = self._s3_key(cr.dbname, fname)
+                _logger.info("S3 (%s) delete '%s'", s3_pool.bucket, key)
+                _logger.increment("s3.delete", 1)
                 try:
-                    _logger.info("S3 (%s) delete '%s'", s3_pool.bucket, fname)
-                    _logger.increment("s3.delete", 1)
-                    s3_pool.client.delete_object(Bucket=s3_pool.bucket, Key=fname)
+                    s3_pool.client.delete_object(Bucket=s3_pool.bucket, Key=key)
                 except ClientError as e:
                     if e.response['Error']['Code'] != "NoSuchKey":
-                        _logger.warning("S3 (%s) delete '%s'", s3_pool.bucket, fname, exc_info=True)
+                        _logger.warning("S3 (%s) delete '%s'", s3_pool.bucket, key, exc_info=True)
         return super(ir_attachment, self)._file_delete(cr, uid, fname)
 
+    def _s3_key(self, dbname, fname):
+        return 'filestore/%s/%s' % (dbname, fname)
+
     def _s3_get(self, cr, uid, fname):
+        key = self._s3_key(cr.dbname, fname)
+        _logger.info("S3 (%s) get '%s'", s3_pool.bucket, key)
+        _logger.increment("s3.get", 1)
+
         try:
-            _logger.info("S3 (%s) get '%s'", s3_pool.bucket, fname)
-            _logger.increment("s3.get", 1)
-            r = s3_pool.client.get_object(Bucket=s3_pool.bucket, Key=fname)
+            r = s3_pool.client.get_object(Bucket=s3_pool.bucket, Key=key)
         except ClientError as e:
-            _logger.warning("S3 (%s) get '%s'", s3_pool.bucket, fname, exc_info=True)
+            _logger.warning("S3 (%s) get '%s'", s3_pool.bucket, key, exc_info=True)
             if e.response['Error']['Code'] == "NoSuchKey":
                 raise S3NoSuchKey
             raise S3Error
@@ -96,15 +102,24 @@ class ir_attachment(osv.osv):
         value = bin_data.encode('base64')
         super(ir_attachment, self)._file_write(cr, uid, value, checksum)
 
-    def _s3_put(self, cr, uid, fname):
+    def _s3_put(self, cr, uid, fname, content_type='application/octet-stream'):
         value = super(ir_attachment, self)._file_read(cr, uid, fname)
         bin_data = value.decode('base64')
+
+        key = self._s3_key(cr.dbname, fname)
+        _logger.info("S3 (%s) put '%s'", s3_pool.bucket, key)
+        _logger.increment("s3.put", 1)
+
         try:
-            _logger.info("S3 (%s) put '%s'", s3_pool.bucket, fname)
-            _logger.increment("s3.put", 1)
-            s3_pool.client.put_object(Bucket=s3_pool.bucket, Key=fname, Body=bin_data)
+            s3_pool.client.put_object(
+                Bucket=s3_pool.bucket,
+                Key=key,
+                Body=bin_data,
+                ContentType=content_type,
+                ACL='public-read'
+            )
         except ClientError:
-            _logger.warning("S3 (%s) put '%s'", s3_pool.bucket, fname, exc_info=True)
+            _logger.warning("S3 (%s) put '%s'", s3_pool.bucket, key, exc_info=True)
             raise S3Error
 
     _columns = {

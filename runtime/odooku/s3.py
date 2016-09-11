@@ -1,4 +1,6 @@
-import os
+import urlparse
+import posixpath
+
 import logging
 import boto3
 import botocore.session
@@ -21,14 +23,20 @@ class S3NoSuchKey(S3Error):
 class S3Pool(object):
 
     def __init__(self, bucket, aws_access_key_id=None,
-            aws_secret_access_key=None, dev_url=None):
+            aws_secret_access_key=None, endpoint_url=None,
+            addressing_style=None, signature_version=None,
+            custom_domain=None):
         self._local = Local()
         self._bucket = bucket
         self._aws_access_key_id = aws_access_key_id
         self._aws_secret_access_key = aws_secret_access_key
-        self._dev_url = dev_url
+        self._endpoint_url = endpoint_url
+        self._addressing_style = addressing_style
+        self._signature_version = signature_version
+        self._custom_domain = custom_domain
 
     def check(self):
+        '''
         if not self._dev_url:
             try:
                 _logger.info("S3 (%s) head", self.bucket)
@@ -36,8 +44,13 @@ class S3Pool(object):
             except ClientError as e:
                 _logger.warning("S3 (%s) head", self.bucket, exc_info=True)
                 return False
-
+        '''
         return True
+
+    def get_url(self, parts):
+        if self._custom_domain:
+            return urlparse.urljoin(self._custom_domain, *parts)
+        return urlparse.urljoin(self.client.meta.endpoint_url, posixpath.join(self.bucket, *parts))
 
     @property
     def bucket(self):
@@ -47,25 +60,16 @@ class S3Pool(object):
     def client(self):
         if not hasattr(self._local, 'client'):
             _logger.info("Creating new S3 Client")
-            if self._dev_url:
-                _logger.warning("S3 dev mode enabled")
-                session = botocore.session.get_session()
-                self._local.client = session.create_client(
-                    's3',
-                    aws_access_key_id='-',
-                    aws_secret_access_key='-',
-                    endpoint_url=self._dev_url,
-                    config=Config(
-                        s3={'addressing_style': 'path'},
-                        signature_version='s3'
-                    )
+            self._local.client = boto3.client(
+                's3',
+                aws_access_key_id=self._aws_access_key_id,
+                aws_secret_access_key=self._aws_secret_access_key,
+                endpoint_url=self._endpoint_url,
+                config=Config(
+                    s3={'addressing_style': self._addressing_style},
+                    signature_version=self._signature_version
                 )
-            else:
-                self._local.client = boto3.client(
-                    's3',
-                    aws_access_key_id=self._aws_access_key_id,
-                    aws_secret_access_key=self._aws_secret_access_key
-                )
+            )
 
         return self._local.client
 

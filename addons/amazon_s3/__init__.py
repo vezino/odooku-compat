@@ -19,7 +19,7 @@ def _force_s3_storage(cr, registry):
         for attach in attachment.browse(cr, SUPERUSER_ID, ids, {}):
             exists = False
             try:
-                attach._s3_put(attach.store_fname)
+                attach._s3_put(attach.store_fname, content_type=attach.mimetype)
                 exists = True
             except S3Error:
                 raise

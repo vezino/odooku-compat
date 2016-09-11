@@ -179,50 +179,54 @@ def dump_db(db_name, stream, backup_format='zip'):
     """Dump database `db` into file-like object `stream` if stream is None
     return a file object with the dump """
 
-    _logger.info('DUMP DB: %s format %s', db_name, backup_format)
+    try:
+        _logger.info('DUMP DB: %s format %s', db_name, backup_format)
 
-    cmd = ['pg_dump', '--no-owner']
-    cmd.append(db_name)
+        cmd = ['pg_dump', '--no-owner']
+        cmd.append(db_name)
 
-    registry = openerp.modules.registry.RegistryManager.new(db_name)
-    if backup_format == 'zip':
-        with openerp.tools.osutil.tempdir() as dump_dir:
-            # PATCH !!
-            # Instead of copying the filestore directory, read
-            # all attachments from filestore/s3-bucket.
-            attachment = registry['ir.attachment']
-            # For some reason we can't search installed attachments...
-            with registry.cursor() as cr:
-                cr.execute("SELECT id FROM ir_attachment")
-                for id in [rec['id'] for rec in cr.dictfetchall()]:
-                    rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
-                    full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
-                    bin_value = rec.datas
-                    if not os.path.exists(os.path.dirname(full_path)):
-                        os.makedirs(os.path.dirname(full_path))
-                    with open(full_path, 'wb') as fp:
-                        fp.write(bin_value)
+        registry = openerp.modules.registry.RegistryManager.new(db_name)
+        if backup_format == 'zip':
+            with openerp.tools.osutil.tempdir() as dump_dir:
+                # PATCH !!
+                # Instead of copying the filestore directory, read
+                # all attachments from filestore/s3-bucket.
+                attachment = registry['ir.attachment']
+                # For some reason we can't search installed attachments...
+                with registry.cursor() as cr:
+                    cr.execute("SELECT id FROM ir_attachment")
+                    for id in [rec['id'] for rec in cr.dictfetchall()]:
+                        rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
+                        full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
+                        bin_value = rec.datas
+                        if not os.path.exists(os.path.dirname(full_path)):
+                            os.makedirs(os.path.dirname(full_path))
+                        with open(full_path, 'wb') as fp:
+                            fp.write(bin_value)
 
-            with open(os.path.join(dump_dir, 'manifest.json'), 'w') as fh:
-                db = openerp.sql_db.db_connect(db_name)
-                with db.cursor() as cr:
-                    json.dump(dump_db_manifest(cr), fh, indent=4)
-            cmd.insert(-1, '--file=' + os.path.join(dump_dir, 'dump.sql'))
-            openerp.tools.exec_pg_command(*cmd)
-            if stream:
-                openerp.tools.osutil.zip_dir(dump_dir, stream, include_dir=False, fnct_sort=lambda file_name: file_name != 'dump.sql')
-            else:
-                t=tempfile.TemporaryFile()
-                openerp.tools.osutil.zip_dir(dump_dir, t, include_dir=False, fnct_sort=lambda file_name: file_name != 'dump.sql')
-                t.seek(0)
-                return t
-    else:
-        cmd.insert(-1, '--format=c')
-        stdin, stdout = openerp.tools.exec_pg_command_pipe(*cmd)
-        if stream:
-            shutil.copyfileobj(stdout, stream)
+                with open(os.path.join(dump_dir, 'manifest.json'), 'w') as fh:
+                    db = openerp.sql_db.db_connect(db_name)
+                    with db.cursor() as cr:
+                        json.dump(dump_db_manifest(cr), fh, indent=4)
+                cmd.insert(-1, '--file=' + os.path.join(dump_dir, 'dump.sql'))
+                openerp.tools.exec_pg_command(*cmd)
+                if stream:
+                    openerp.tools.osutil.zip_dir(dump_dir, stream, include_dir=False, fnct_sort=lambda file_name: file_name != 'dump.sql')
+                else:
+                    t=tempfile.TemporaryFile()
+                    openerp.tools.osutil.zip_dir(dump_dir, t, include_dir=False, fnct_sort=lambda file_name: file_name != 'dump.sql')
+                    t.seek(0)
+                    return t
         else:
-            return stdout
+            cmd.insert(-1, '--format=c')
+            stdin, stdout = openerp.tools.exec_pg_command_pipe(*cmd)
+            if stream:
+                shutil.copyfileobj(stdout, stream)
+            else:
+                return stdout
+    except Exception as x:
+        print x
+        raise x
 
 def exp_restore(db_name, data, copy=False):
     data_file = tempfile.NamedTemporaryFile(delete=False)
