@@ -197,12 +197,13 @@ def dump_db(db_name, stream, backup_format='zip'):
                     cr.execute("SELECT id FROM ir_attachment")
                     for id in [rec['id'] for rec in cr.dictfetchall()]:
                         rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
-                        full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
-                        bin_value = rec.datas
-                        if not os.path.exists(os.path.dirname(full_path)):
-                            os.makedirs(os.path.dirname(full_path))
-                        with open(full_path, 'wb') as fp:
-                            fp.write(bin_value)
+                        if rec.store_fname:
+                            full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
+                            bin_value = rec.datas
+                            if not os.path.exists(os.path.dirname(full_path)):
+                                os.makedirs(os.path.dirname(full_path))
+                            with open(full_path, 'wb') as fp:
+                                fp.write(bin_value)
 
                 with open(os.path.join(dump_dir, 'manifest.json'), 'w') as fh:
                     db = openerp.sql_db.db_connect(db_name)
