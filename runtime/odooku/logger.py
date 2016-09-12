@@ -170,7 +170,9 @@ def setup(debug=False, statsd_host=None):
             'console': {
                 'class': 'logging.StreamHandler',
                 'formatter': 'simple',
-                'stream': sys.stdout
+                # Log to stderr so that click commands can make
+                # use of stdout
+                'stream': sys.stderr
             },
         },
         formatters={

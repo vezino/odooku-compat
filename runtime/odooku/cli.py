@@ -149,7 +149,6 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
 
     import logging
     logger = logging.getLogger(__name__)
-    logger.info("Odoo modules at:\n%s" %  "\n".join(openerp.modules.module.ad_paths))
 
     ctx.obj.update({
         'debug': debug,
@@ -158,12 +157,6 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         'params': params,
         'logger': logger,
     })
-
-    if dev:
-        logger.warning("RUNNING IN DEVELOPMENT MODE")
-
-    if debug:
-        logger.warning("RUNNING IN DEBUG MODE")
 
 
 import odooku.commands
