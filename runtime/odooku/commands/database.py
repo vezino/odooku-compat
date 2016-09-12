@@ -1,6 +1,7 @@
 import click
 import tempfile
 import sys
+import os
 
 from odooku.utils import prefix_envvar
 
@@ -84,7 +85,7 @@ def restore(ctx, db_name):
     from openerp.api import Environment
     from openerp.service import db
     with Environment.manage():
-        with tempfile.NamedTemporaryFile() as t:
+        with tempfile.NamedTemporaryFile(delete=False) as t:
             while True:
                 chunk = sys.stdin.read(CHUNK_SIZE)
                 if not chunk:
@@ -92,6 +93,7 @@ def restore(ctx, db_name):
                 t.write(chunk)
             t.close()
             db.restore_db(db_name, t.name, copy=True)
+            os.unlink(t.name)
 
 
 @click.group()

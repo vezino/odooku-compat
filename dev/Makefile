@@ -10,6 +10,7 @@ DB_NAME=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*
 BUILDPACK_URL=https://github.com/adaptivdesign/odooku-buildpack
 
 NEW_DATABASE:=$(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+CMD:=/bin/bash
 
 define NEW_ENV
 DATABASE_URL=postgres://odoo:odoo@localhost:5432/${NEW_DATABASE}
@@ -39,16 +40,11 @@ endef
 
 
 define BASH_INIT
-echo '-----> Importing slug' \
-;/bin/herokuish slug import < /odooku/slug.tar.gz \
-;echo '-----> Installing Odooku runtime' \
-;/app/.heroku/odoo/bin/pip install --disable-pip-version-check --upgrade /vagrant/runtime/. \
-;echo '-----> Loading addons' \
+/bin/herokuish slug import < /odooku/slug.tar.gz \
+;/app/.heroku/odoo/bin/pip install --disable-pip-version-check --upgrade -e /vagrant/runtime/. &>/dev/null \
 ;cp -a /vagrant/addons/. /app/.heroku/odoo/compat_addons/ \
-;echo '-----> Applying patches' \
 ;cp -a /vagrant/patch/addons/. /app/.heroku/odoo/addons/ \
 ;cp -a /vagrant/patch/openerp/. /app/.heroku/odoo/lib/python2.7/site-packages/openerp/ \
-&& echo '-----> Enabling dev mode' \
 && export ODOOKU_DEV=true
 endef
 
@@ -113,7 +109,17 @@ shell:
 		${RUN_ARGS} \
 		bin/bash -c \
 			"${BASH_INIT} \
-			;USER=herokuishuser /bin/herokuish procfile exec /bin/bash"
+			;USER=herokuishuser /bin/herokuish procfile exec ${CMD}"
+
+
+run:
+	@docker run \
+		--rm -i \
+		--name run \
+		${RUN_ARGS} \
+		bin/bash -c \
+			"${BASH_INIT} \
+			;USER=herokuishuser /bin/herokuish procfile exec ${CMD}"
 
 
 psql:
@@ -121,18 +127,6 @@ psql:
 		--rm \
 		-it \
 		--net host \
-		-v /vagrant/data:/tmp \
 		-e PGPASSWORD=${DB_PASSWORD} \
 		postgres:9.5 \
 		psql -U ${DB_USER} -w -h ${DB_HOST} -p ${DB_PORT} -d ${DB_NAME}
-
-
-pg-restore:
-	@docker run \
-		--rm \
-		-it \
-		--net host \
-		-v /vagrant:/tmp \
-		-e PGPASSWORD=${DB_PASSWORD} \
-		postgres:9.5 \
-		pg_restore -U ${DB_USER} -w -h ${DB_HOST} -p ${DB_PORT} -d ${DB_NAME} --no-owner /tmp/${DB_NAME}.dump
