@@ -225,8 +225,12 @@ def dump_db(db_name, stream, backup_format='zip'):
             else:
                 return stdout
     except Exception as x:
+        import sys, traceback
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        print "*** print_exc:"
+        traceback.print_exc()
         print x
-        raise x
+        raise Exception("OK")
 
 def exp_restore(db_name, data, copy=False):
     data_file = tempfile.NamedTemporaryFile(delete=False)
