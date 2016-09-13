@@ -235,22 +235,22 @@ def exp_restore(db_name, data, copy=False):
         os.unlink(data_file.name)
     return True
 
-def restore_db(db_name, dump_file, copy=False):
+def restore_db(db_name, dump_file, copy=False, truncate=False):
     assert isinstance(db_name, basestring)
 
     dbs = openerp.tools.config.get('db_name', '').split(',')
     if db_name in dbs:
         # Running in mono db mode.
-        openerp.modules.registry.RegistryManager.delete(db_name)
-        db = openerp.sql_db.db_connect(db_name)
-        with closing(db.cursor()) as cr:
-            cr.autocommit(True)
-            cr.execute('DROP SCHEMA public CASCADE')
-            cr.execute('CREATE SCHEMA public')
-            cr.execute('GRANT ALL ON SCHEMA public TO public')
+        if truncate:
+            openerp.modules.registry.RegistryManager.delete(db_name)
+            db = openerp.sql_db.db_connect(db_name)
+            with closing(db.cursor()) as cr:
+                cr.autocommit(True)
+                cr.execute('DROP SCHEMA public CASCADE')
+                cr.execute('CREATE SCHEMA public')
+                cr.execute('GRANT ALL ON SCHEMA public TO public')
 
-        openerp.sql_db.close_db(db_name)
-
+            openerp.sql_db.close_db(db_name)
     else:
         # Running in regular db mode
         if exp_db_exist(db_name):
@@ -300,10 +300,11 @@ def restore_db(db_name, dump_file, copy=False):
                 cr.execute("SELECT id FROM ir_attachment")
                 for id in [rec['id'] for rec in cr.dictfetchall()]:
                     rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
-                    full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
-                    if os.path.exists(full_path):
-                        value = open(full_path,'rb').read()
-                        rec.write({'datas': value, 'mimetype': rec.mimetype})
+                    if rec.store_fname:
+                        full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
+                        if os.path.exists(full_path):
+                            value = open(full_path,'rb').read()
+                            rec.write({'datas': value, 'mimetype': rec.mimetype})
 
             if openerp.tools.config['unaccent']:
                 try:

@@ -86,8 +86,12 @@ def dump(ctx, db_name, s3_file):
 @click.option(
     '--s3-file'
 )
+@click.option(
+    '--truncate',
+    is_flag=True
+)
 @click.pass_context
-def restore(ctx, db_name, s3_file):
+def restore(ctx, db_name, s3_file, truncate=None):
     config = (
         ctx.obj['config']
     )
@@ -108,7 +112,7 @@ def restore(ctx, db_name, s3_file):
                         break
                     t.write(chunk)
             t.close()
-            db.restore_db(db_name, t.name, copy=True)
+            db.restore_db(db_name, t.name, copy=True, truncate=truncate)
             os.unlink(t.name)
 
 
