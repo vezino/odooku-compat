@@ -16,17 +16,12 @@ CHUNK_SIZE = 16 * 1024
 
 @click.command()
 @click.pass_context
-@click.option(
-    '--modules',
-    multiple=True,
-    default=['web'],
-    envvar=prefix_envvar('PRELOAD')
-)
-def preload(ctx, modules, new_dbuuid):
+def preload(ctx):
     config = (
         ctx.obj['config']
     )
 
+    config['init']['all'] = 1
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'], False, None, update_module=True)
 
@@ -34,7 +29,7 @@ def preload(ctx, modules, new_dbuuid):
 
 @click.command()
 @click.pass_context
-def newdbuuid(ctx, modules, new_dbuuid):
+def newdbuuid(ctx, new_dbuuid):
     config = (
         ctx.obj['config']
     )
@@ -96,6 +91,7 @@ def restore(ctx, db_name, s3_file, truncate=None):
         ctx.obj['config']
     )
 
+    config['update']['all'] = 1
     db_name = db_name or config.get('db_name', '').split(',')[0]
     from openerp.api import Environment
     from openerp.service import db
@@ -119,7 +115,10 @@ def restore(ctx, db_name, s3_file, truncate=None):
 @click.group()
 @click.pass_context
 def database(ctx):
-    pass
+    config = (
+        ctx.obj['config']
+    )
+
 
 
 database.add_command(preload)
