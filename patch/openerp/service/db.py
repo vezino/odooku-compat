@@ -235,7 +235,7 @@ def exp_restore(db_name, data, copy=False):
         os.unlink(data_file.name)
     return True
 
-def restore_db(db_name, dump_file, copy=False, truncate=False):
+def restore_db(db_name, dump_file, copy=False, truncate=False, update=False, skip_pg=False, skip_filestore=False):
     assert isinstance(db_name, basestring)
 
     dbs = openerp.tools.config.get('db_name', '').split(',')
@@ -283,15 +283,15 @@ def restore_db(db_name, dump_file, copy=False, truncate=False):
         args.append('--dbname=' + db_name)
         pg_args = args + pg_args
 
-        if openerp.tools.exec_pg_command(pg_cmd, *pg_args):
+        if not skip_pg and openerp.tools.exec_pg_command(pg_cmd, *pg_args):
             raise Exception("Couldn't restore database")
 
-        registry = openerp.modules.registry.RegistryManager.new(db_name, update_module=True)
+        registry = openerp.modules.registry.RegistryManager.new(db_name, update_module=update)
         with registry.cursor() as cr:
             if copy:
                 # if it's a copy of a database, force generation of a new dbuuid
                 registry['ir.config_parameter'].init(cr, force=True)
-            if filestore_path:
+            if not skip_filestore and filestore_path:
                 # PATCH !!
                 # Instead of copying the filestore directory, read
                 # all attachments from filestore/s3-bucket.
