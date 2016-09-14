@@ -286,7 +286,7 @@ def restore_db(db_name, dump_file, copy=False, truncate=False):
         if openerp.tools.exec_pg_command(pg_cmd, *pg_args):
             raise Exception("Couldn't restore database")
 
-        registry = openerp.modules.registry.RegistryManager.new(db_name)
+        registry = openerp.modules.registry.RegistryManager.new(db_name, update_module=True)
         with registry.cursor() as cr:
             if copy:
                 # if it's a copy of a database, force generation of a new dbuuid
