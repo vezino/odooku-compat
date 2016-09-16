@@ -130,6 +130,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     # Patch odoo config
     from openerp.tools import config
     database_url = urlparse.urlparse(database_url)
+    database_qs = urlparse.parse_qs(database_url.query)
     config.parse_config()
     db_name = database_url.path[1:] if database_url.path else ''
     config['addons_path'] = addons
@@ -139,6 +140,8 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['db_host'] = database_url.hostname
     config['db_port'] = database_url.port
     config['db_maxconn'] = database_maxconn
+    config['db_sslrootcert'] = database_qs.get('sslrootcert')
+    config['db_sslmode'] = database_qs.get('sslmode', 'require' if database_qs.get('sslrootcert') else None)
 
     config['demo'] = {}
     config['without_demo'] = 'all' if not demo_data else ''

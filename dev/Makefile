@@ -1,22 +1,34 @@
 include /odooku/env.mk
 
-PORT=8000
-NUM=1
 DB_USER=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
 DB_PASSWORD=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
 DB_HOST=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
 DB_PORT=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
 DB_NAME=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
+
+PORT=8000
+NUM=1
 BUILDPACK_URL=https://github.com/adaptivdesign/odooku-buildpack
 
-NEW_DATABASE:=$(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+UNIQUE:=$(shell cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 32 | head -n 1)
 CMD:=/bin/bash
 
+NEW_DATABASE_URL=$(shell echo $${DATABASE_URL:-postgres://odoo:odoo@localhost:5432/${UNIQUE}})
+NEW_ADMIN_PASSWORD=$(shell echo $${ADMIN_PASSWORD:-${UNIQUE}})
+NEW_REDIS_URL=$(shell echo $${REDIS_URL:-redis://localhost:6379})
+NEW_S3_BUCKET=$(shell echo $${S3_BUCKET:-${UNIQUE}})
+
+NEW_DB_USER=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
+NEW_DB_PASSWORD=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
+NEW_DB_HOST=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
+NEW_DB_PORT=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
+NEW_DB_NAME=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
+
 define NEW_ENV
-DATABASE_URL=postgres://odoo:odoo@localhost:5432/${NEW_DATABASE}
-ADMIN_PASSWORD=${NEW_DATABASE}
-REDIS_URL=redis://localhost:6379
-S3_BUCKET=${NEW_DATABASE}
+DATABASE_URL=${NEW_DATABASE_URL}
+ADMIN_PASSWORD=${NEW_ADMIN_PASSWORD}
+REDIS_URL=${NEW_REDIS_URL}
+S3_BUCKET=${NEW_S3_BUCKET}
 endef
 
 export NEW_ENV
@@ -50,13 +62,19 @@ endef
 
 
 new-env:
-	@echo "Creating empty database ${NEW_DATABASE}"
-	@docker exec postgres createdb -U odoo ${NEW_DATABASE}
-	@echo "Creating empty s3 bucket ${NEW_DATABASE}"
-	@mkdir -p /odooku/filestore/${NEW_DATABASE}
 	@echo "Updating env"
-	@echo "Admin password: ${NEW_DATABASE}"
 	@echo "$$NEW_ENV" > /odooku/env.mk
+	@echo "Creating new database ${NEW_DB_NAME}"
+	@docker run \
+		--rm \
+		-it \
+		--net host \
+		-e PGPASSWORD=${NEW_DB_PASSWORD} \
+		postgres:9.5 \
+		createdb -U ${NEW_DB_USER} -w -h ${NEW_DB_HOST} -p ${NEW_DB_PORT} ${NEW_DB_NAME}
+
+	@echo "Admin password: ${NEW_ADMIN_PASSWORD}"
+
 
 
 build:

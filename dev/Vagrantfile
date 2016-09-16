@@ -53,7 +53,7 @@ sudo docker run \
   kamon/grafana_graphite
 
 sleep 10
-cd /vagrant && sudo make new-env
+cd /vagrant/dev && make new-env
 
 SCRIPT
 
