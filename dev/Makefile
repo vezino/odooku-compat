@@ -1,11 +1,5 @@
 include /odooku/env.mk
 
-DB_USER=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
-DB_PASSWORD=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
-DB_HOST=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
-DB_PORT=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
-DB_NAME=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
-
 PORT=8000
 NUM=1
 BUILDPACK_URL=https://github.com/adaptivdesign/odooku-buildpack
@@ -13,24 +7,20 @@ BUILDPACK_URL=https://github.com/adaptivdesign/odooku-buildpack
 UNIQUE:=$(shell cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 32 | head -n 1)
 CMD:=/bin/bash
 
-NEW_DATABASE_URL=$(shell echo $${DATABASE_URL:-postgres://odoo:odoo@localhost:5432/${UNIQUE}})
-NEW_ADMIN_PASSWORD=$(shell echo $${ADMIN_PASSWORD:-${UNIQUE}})
-NEW_REDIS_URL=$(shell echo $${REDIS_URL:-redis://localhost:6379})
-NEW_S3_BUCKET=$(shell echo $${S3_BUCKET:-${UNIQUE}})
+NEW_DATABASE_URL:=postgres://odoo:odoo@localhost:5432/${UNIQUE}
+NEW_ADMIN_PASSWORD:=${UNIQUE}
+NEW_REDIS_URL:=redis://localhost:6379
+NEW_S3_BUCKET:=${UNIQUE}
+NEW_ODOOKU_CDN:=0
 
-NEW_DB_USER=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
-NEW_DB_PASSWORD=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
-NEW_DB_HOST=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
-NEW_DB_PORT=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
-NEW_DB_NAME=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
 
 define NEW_ENV
-DATABASE_URL=${NEW_DATABASE_URL}
-ADMIN_PASSWORD=${NEW_ADMIN_PASSWORD}
-REDIS_URL=${NEW_REDIS_URL}
-S3_BUCKET=${NEW_S3_BUCKET}
+DATABASE_URL:=${NEW_DATABASE_URL}
+ADMIN_PASSWORD:=${NEW_ADMIN_PASSWORD}
+REDIS_URL:=${NEW_REDIS_URL}
+S3_BUCKET:=${NEW_S3_BUCKET}
+ODOOKU_CDN:=${NEW_ODOOKU_CDN}
 endef
-
 export NEW_ENV
 
 
@@ -42,11 +32,14 @@ define RUN_ARGS
 -e REDIS_URL=${REDIS_URL} \
 -e S3_BUCKET=${S3_BUCKET} \
 -e S3_ENDPOINT_URL=http://localhost:4569 \
+-e S3_CUSTOM_DOMAIN=http://${S3_BUCKET}.localhost:4569 \
 -e AWS_ACCESS_KEY_ID=foobar \
 -e AWS_SECRET_ACCESS_KEY=foobar \
 -e PORT=${PORT} \
+-e ODOOKU_DEBUG=1 \
 -e ODOOKU_STATSD_HOST=127.0.0.1:8125 \
 -e ODOOKU_ADMIN_PASSWORD=${ADMIN_PASSWORD} \
+-e ODOOKU_CDN=${ODOOKU_CDN} \
 gliderlabs/herokuish
 endef
 
@@ -61,17 +54,30 @@ define BASH_INIT
 endef
 
 
+# Parse database url's
+db_user=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
+db_password=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
+db_host=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
+db_port=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
+db_name=$(shell echo ${DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
+new_db_user=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/\(.*\):.*@.*:.*\/.*$$/\1/')
+new_db_password=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:\(.*\)@.*:.*\/.*$$/\1/')
+new_db_host=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@\(.*\):.*\/.*$$/\1/')
+new_db_port=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:\(.*\)\/.*$$/\1/')
+new_db_name=$(shell echo ${NEW_DATABASE_URL} | sed -e 's/^postgres:\/\/.*:.*@.*:.*\/\(.*\)$$/\1/')
+
+
 new-env:
 	@echo "Updating env"
 	@echo "$$NEW_ENV" > /odooku/env.mk
-	@echo "Creating new database ${NEW_DB_NAME}"
+	@echo "Creating new database ${new_db_name}"
 	@docker run \
 		--rm \
-		-it \
+		-i \
 		--net host \
-		-e PGPASSWORD=${NEW_DB_PASSWORD} \
+		-e PGPASSWORD=${new_db_password} \
 		postgres:9.5 \
-		createdb -U ${NEW_DB_USER} -w -h ${NEW_DB_HOST} -p ${NEW_DB_PORT} ${NEW_DB_NAME}
+		createdb -U ${new_db_user} -w -h ${new_db_host} -p ${new_db_port} ${new_db_name}
 
 	@echo "Admin password: ${NEW_ADMIN_PASSWORD}"
 
@@ -144,6 +150,6 @@ psql:
 		--rm \
 		-it \
 		--net host \
-		-e PGPASSWORD=${DB_PASSWORD} \
+		-e PGPASSWORD=${db_password} \
 		postgres:9.5 \
-		psql -U ${DB_USER} -w -h ${DB_HOST} -p ${DB_PORT} -d ${DB_NAME}
+		psql -U ${db_user} -w -h ${db_host} -p ${db_port} -d ${db_name}

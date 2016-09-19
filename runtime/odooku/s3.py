@@ -36,20 +36,17 @@ class S3Pool(object):
         self._custom_domain = custom_domain
 
     def check(self):
-        '''
-        if not self._dev_url:
-            try:
-                _logger.info("S3 (%s) head", self.bucket)
-                self.client.head_bucket(Bucket=self.bucket)
-            except ClientError as e:
-                _logger.warning("S3 (%s) head", self.bucket, exc_info=True)
-                return False
-        '''
+        try:
+            _logger.info("S3 (%s) head", self.bucket)
+            self.client.head_bucket(Bucket=self.bucket)
+        except ClientError as e:
+            _logger.warning("S3 (%s) head", self.bucket, exc_info=True)
+            return False
         return True
 
-    def get_url(self, parts):
+    def get_url(self, *parts):
         if self._custom_domain:
-            return urlparse.urljoin(self._custom_domain, *parts)
+            return urlparse.urljoin(self._custom_domain, posixpath.join(*parts))
         return urlparse.urljoin(self.client.meta.endpoint_url, posixpath.join(self.bucket, *parts))
 
     @property

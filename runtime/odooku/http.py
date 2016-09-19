@@ -17,6 +17,21 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
+class WebRequestMixin(object):
+
+    def _handle_exception(self, exception):
+        _logger.exception("Request exception", exc_info=True)
+        return super(WebRequestMixin, self)._handle_exception(exception)
+
+
+class HttpRequest(WebRequestMixin, openerp.http.HttpRequest):
+    pass
+
+
+class JsonRequest(WebRequestMixin, openerp.http.JsonRequest):
+    pass
+
+
 class Root(openerp.http.Root):
 
     @lazy_property
@@ -55,10 +70,18 @@ class Root(openerp.http.Root):
         else:
             return super(Root, self).setup_session(httprequest)
 
-
     def preload(self):
         self._loaded = True
         self.load_addons()
+
+    def get_request(self, httprequest):
+        # deduce type of request
+        if httprequest.args.get('jsonp'):
+            return JsonRequest(httprequest)
+        if httprequest.mimetype in ("application/json", "application/json-rpc"):
+            return JsonRequest(httprequest)
+        else:
+            return HttpRequest(httprequest)
 
 
 class OpenERPSession(openerp.http.OpenERPSession):

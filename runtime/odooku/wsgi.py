@@ -1,4 +1,5 @@
 import gunicorn.app.base
+from werkzeug.debug import DebuggedApplication
 
 import logging
 
@@ -46,6 +47,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
     def load(self):
         _logger.info("Loading Odoo WSGI application")
         from openerp.service.wsgi_server import application
+        from openerp.tools import config
 
         # Load addons before handling requests
         from odooku.http import Root
@@ -53,6 +55,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
         root = Root()
         root.preload()
         openerp.http.root = root
-
-
+        
+        if config['debug_mode']:
+            application = DebuggedApplication(application, evalex=True)
         return application

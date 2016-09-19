@@ -64,6 +64,12 @@ from odooku.utils import prefix_envvar
     help="S3 custom domain."
 )
 @click.option(
+    '--s3-addressing-style',
+    envvar="S3_ADDRESSING_STYLE",
+    type=click.Choice(['path', 'virtual']),
+    help="S3 addressing style.."
+)
+@click.option(
     '--addons',
     required=True,
     envvar=prefix_envvar('ADDONS')
@@ -95,7 +101,7 @@ from odooku.utils import prefix_envvar
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_endpoint_url,
-        s3_custom_domain,
+        s3_custom_domain, s3_addressing_style,
         addons, demo_data, admin_password, debug, dev, statsd_host):
 
     import odooku.logger
@@ -108,7 +114,8 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
         endpoint_url=s3_endpoint_url,
-        custom_domain=s3_custom_domain
+        custom_domain=s3_custom_domain,
+        addressing_style=s3_addressing_style,
     )
 
     # Setup Redis
@@ -143,7 +150,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['demo'] = {}
     config['without_demo'] = 'all' if not demo_data else ''
     config['admin_passwd'] = admin_password
-    config['debug'] = debug
+    config['debug_mode'] = debug
     config['dev_mode'] = dev
     config['list_db'] = not bool(db_name)
 

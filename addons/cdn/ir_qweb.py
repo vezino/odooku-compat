@@ -22,6 +22,7 @@ class QWeb(orm.AbstractModel):
         context = qwebcontext.context or {}
         if CDN_ENABLED and not context.get('rendering_bundle') and s3_pool:
             if name == self.CDN_TRIGGERS.get(element.tag):
+                parts = value.split('/')
                 cr, uid, context = [getattr(qwebcontext, attr) for attr in ('cr', 'uid', 'context')]
                 if value.startswith('/web/content/'):
                     ira = self.pool['ir.attachment']
@@ -29,10 +30,10 @@ class QWeb(orm.AbstractModel):
                     attachment_ids = ira.search(cr, openerp.SUPERUSER_ID, domain, order='name asc', context=context)
                     attachments = ira.browse(cr, openerp.SUPERUSER_ID, attachment_ids, context=context)
                     if attachments:
-                        # /dbname/filestore/<attachment>
-                        value = s3_pool.get_url(cr.dbname, 'filestore', attachments[0].store_fname)
-                else:
+                        # /filestore/<dbname/<attachment>
+                        value = s3_pool.get_url('filestore', cr.dbname, attachments[0].store_fname)
+                elif len(parts) > 2 and parts[1] == 'static':
                     # /modules/<module>/static
                     value = s3_pool.get_url('modules', value[1:])
-        
+
         return super(QWeb, self).render_attribute(element, name, value, qwebcontext)
