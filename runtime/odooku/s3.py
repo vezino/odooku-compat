@@ -36,12 +36,15 @@ class S3Pool(object):
         self._custom_domain = custom_domain
 
     def check(self):
+        # Wont work for fake-s3
+        '''
         try:
             _logger.info("S3 (%s) head", self.bucket)
             self.client.head_bucket(Bucket=self.bucket)
         except ClientError as e:
             _logger.warning("S3 (%s) head", self.bucket, exc_info=True)
             return False
+        '''
         return True
 
     def get_url(self, *parts):
