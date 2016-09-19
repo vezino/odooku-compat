@@ -76,7 +76,6 @@ new-env:
 	@echo "Admin password: ${NEW_ADMIN_PASSWORD}"
 
 
-
 build:
 	@echo "Using local commit $$(git rev-parse HEAD)"
 	-@rm -rf /odooku/app
