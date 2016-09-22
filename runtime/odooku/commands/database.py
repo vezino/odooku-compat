@@ -49,7 +49,7 @@ def newdbuuid(ctx, new_dbuuid):
 
     from openerp.modules.registry import RegistryManager
     from openerp.api import Environment
-    registry = RegistryManager.new(config['db_name'])
+    registry = RegistryManager.get(config['db_name'])
     with Environment.manage():
         with registry.cursor() as cr:
             registry['ir.config_parameter'].init(cr, force=True)
