@@ -16,21 +16,29 @@ def shell(ctx, input_file):
     )
 
     from openerp.modules.registry import RegistryManager
-    from openerp.api import Environment
+    from openerp.api import Environment, Environments
     from openerp import SUPERUSER_ID
 
     registry = RegistryManager.get(config['db_name'])
-    with Environment.manage():
-        with registry.cursor() as cr:
-            uid = SUPERUSER_ID
-            ctx = Environment(cr, uid, {})['res.users'].context_get()
-            env = Environment(cr, uid, ctx)
 
-            context = {
-                'env': env
-            }
+    # Bpython doesnt play nice with werkzeug's local object
+    class FakeLocal(object):
+        environments = Environments()
 
-            args = []
-            if input_file is not None:
-                args = [input_file]
-            bpython.embed(context, args=args, banner='Odooku shell')
+    Environment._local = FakeLocal()
+
+    with registry.cursor() as cr:
+        uid = SUPERUSER_ID
+        ctx = Environment(cr, uid, {})['res.users'].context_get()
+        env = Environment(cr, uid, ctx)
+
+        context = {
+            'env': env,
+            'self': env.user
+        }
+
+        args = []
+        if input_file is not None:
+            args = [input_file]
+
+        bpython.embed(context, args=args, banner='Odooku shell')
