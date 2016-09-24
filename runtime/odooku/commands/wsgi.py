@@ -39,11 +39,12 @@ __all__ = [
 )
 @click.pass_context
 def wsgi(ctx, port, workers, threads, timeout, cdn):
-    debug, dev, config, params = (
+    debug, dev, config, params, newrelic_agent = (
         ctx.obj['debug'],
         ctx.obj['dev'],
         ctx.obj['config'],
         ctx.obj['params'],
+        ctx.obj['newrelic_agent']
     )
 
     # Patch odoo config
@@ -52,9 +53,10 @@ def wsgi(ctx, port, workers, threads, timeout, cdn):
     # Keep track of custom config params
     params.TIMEOUT = timeout
     params.CDN_ENABLED = cdn
-    extra_options = {}
-    if dev:
-        extra_options['reload'] = True
+    extra_options = {
+        'newrelic_agent': newrelic_agent,
+        'reload': dev,
+    }
 
     from odooku.wsgi import WSGIServer
     server = WSGIServer(

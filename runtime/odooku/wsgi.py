@@ -16,6 +16,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
             interface='0.0.0.0',
             worker_class='gthread',
             logger_class='odooku.logger.GunicornLogger',
+            newrelic_agent=None,
             **options):
 
         self.options = dict(
@@ -29,6 +30,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
         )
 
         self.options.update(options)
+        self._newrelic_agent = newrelic_agent
         super(WSGIServer, self).__init__()
 
     @staticmethod
@@ -55,7 +57,10 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
         root = Root()
         root.preload()
         openerp.http.root = root
-        
+
+        if self._newrelic_agent:
+            application = self._newrelic_agent.WSGIApplicationWrapper(application)
+
         if config['debug_mode']:
             application = DebuggedApplication(application, evalex=True)
         return application
