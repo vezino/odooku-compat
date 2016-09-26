@@ -1,0 +1,62 @@
+#!/bin/bash
+source "include/cmd.bash"
+source "include/fn.bash"
+source "include/utils.bash"
+
+if [[ "$BASH_VERSINFO" -lt "4" ]]; then
+	echo "!! Your system Bash is out of date: $BASH_VERSION"
+	echo "!! Please upgrade to Bash 4 or greater."
+	exit 2
+fi
+
+
+readonly local_path="/odooku"
+readonly bash_init=""
+readonly buildpack_path="${BUILDPACK_PATH:-https://github.com/adaptivdesign/odooku-buildpack}"
+
+
+env-new() {
+	declare desc="Create a new environment"
+}
+
+env-build() {
+  docker run \
+		--rm \
+		-it \
+		-e BUILDPACK_URL=$buildpack_path \
+		-v $local_path/app:/tmp/app \
+		-v $local_path/cache:/tmp/cache \
+		-v $local_path/slug:/tmp/slug \
+		gliderlabs/herokuish \
+		bin/bash -c \
+			"/bin/herokuish buildpack build \
+			&& IMPORT_PATH=/nosuchpath /bin/herokuish slug generate \
+			&& /bin/herokuish slug export > /tmp/slug/slug.tar.gz"
+}
+
+run() {
+  docker run \
+    --rm -it \
+    --name $1 \
+    $2 \
+    bin/bash -c \
+      "${BASH_INIT} \
+      ;USER=herokuishuser /bin/herokuish procfile exec ${CMD}"
+}
+
+main() {
+	set -eo pipefail; [[ "$TRACE" ]] && set -x
+
+	cmd-export-ns env "Manage Herokuish Odooku environment"
+	cmd-export env-new
+  cmd-export env-build
+
+	case "$SELF" in
+		/start)		procfile-start "$@";;
+		/exec)		procfile-exec "$@";;
+		/build)		buildpack-build;;
+		*)			cmd-ns "" "$@";
+	esac
+}
+
+main "$@"
