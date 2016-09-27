@@ -1,4 +1,3 @@
-
 fn-args() {
 	declare desc="Inspect a function's arguments"
 	local argline=$(type $1 | grep declare | grep -v "declare desc" | head -1)

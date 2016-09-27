@@ -1,4 +1,3 @@
-
 declare -A CMDS
 
 cmd-list() {

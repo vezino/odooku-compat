@@ -2,6 +2,10 @@
 source "include/cmd.bash"
 source "include/fn.bash"
 source "include/utils.bash"
+source "include/commands/env.bash"
+source "include/commands/build.bash"
+source "include/commands/run.bash"
+source "include/commands/pg.bash"
 
 if [[ "$BASH_VERSINFO" -lt "4" ]]; then
 	echo "!! Your system Bash is out of date: $BASH_VERSION"
@@ -10,51 +14,51 @@ if [[ "$BASH_VERSINFO" -lt "4" ]]; then
 fi
 
 
-readonly local_path="/odooku"
-readonly bash_init=""
 readonly buildpack_path="${BUILDPACK_PATH:-https://github.com/adaptivdesign/odooku-buildpack}"
 
+readonly port=8000
+readonly local_path="/odooku"
+readonly app_path="$local_path/app"
+readonly cache_path="$local_path/cache"
+readonly slug_path="$local_path/slug.tar.gz"
+readonly env_path="$local_path/.env"
 
-env-new() {
-	declare desc="Create a new environment"
-}
+readonly run_init="\
+/bin/herokuish slug import < $slug_path \
+;/app/.heroku/odoo/bin/pip install --disable-pip-version-check --upgrade -e /vagrant/runtime/. &>/dev/null \
+;cp -a /vagrant/addons/. /app/.heroku/odoo/compat_addons/ \
+;cp -a /vagrant/patch/addons/. /app/.heroku/odoo/addons/ \
+;cp -a /vagrant/patch/openerp/. /app/.heroku/odoo/lib/python2.7/site-packages/openerp/ \
+;source $env_path"
 
-env-build() {
-  docker run \
-		--rm \
-		-it \
-		-e BUILDPACK_URL=$buildpack_path \
-		-v $local_path/app:/tmp/app \
-		-v $local_path/cache:/tmp/cache \
-		-v $local_path/slug:/tmp/slug \
-		gliderlabs/herokuish \
-		bin/bash -c \
-			"/bin/herokuish buildpack build \
-			&& IMPORT_PATH=/nosuchpath /bin/herokuish slug generate \
-			&& /bin/herokuish slug export > /tmp/slug/slug.tar.gz"
-}
+readonly run_args="\
+--net host \
+-v /vagrant:/vagrant \
+-v $local_path:$local_path \
+-e PORT=$port \
+gliderlabs/herokuish"
 
-run() {
-  docker run \
-    --rm -it \
-    --name $1 \
-    $2 \
-    bin/bash -c \
-      "${BASH_INIT} \
-      ;USER=herokuishuser /bin/herokuish procfile exec ${CMD}"
-}
 
 main() {
 	set -eo pipefail; [[ "$TRACE" ]] && set -x
 
-	cmd-export-ns env "Manage Herokuish Odooku environment"
+	cmd-export build
+	cmd-export-ns env "Manage Herokuish environment"
 	cmd-export env-new
-  cmd-export env-build
+	cmd-export env-set
+	cmd-export-ns run "Run inside Herokuish container"
+	cmd-export run-web
+	cmd-export run-worker
+	cmd-export run-exec
+	cmd-export run-shell
+	cmd-export-ns pg "PostgreSQL"
+	cmd-export pg-psql
+	cmd-export pg-createdb
+	cmd-export pg-dropdb
 
 	case "$SELF" in
-		/start)		procfile-start "$@";;
-		/exec)		procfile-exec "$@";;
-		/build)		buildpack-build;;
+		/exec)		run-exec "$@";;
+		/shell)		run-shell "$@";;
 		*)			cmd-ns "" "$@";
 	esac
 }

@@ -164,7 +164,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
 
     # Initialize newrelic_agent
     global newrelic_agent
-    if newrelic_agent and any(key in os.eniron for key in [
+    if newrelic_agent and any(key in os.environ for key in [
                 'NEW_RELIC_LICENSE_KEY',
                 'NEW_RELIC_CONFIG_FILE'
             ]):

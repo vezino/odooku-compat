@@ -12,7 +12,6 @@ sudo apt-get -y update \
 sudo docker pull gliderlabs/herokuish
 sudo mkdir -p /odooku /odooku/cache /odooku/app /odooku/filestore
 sudo chown -R $USER /odooku
-touch /odooku/env.mk
 
 # Postgresql
 sudo docker run \
@@ -53,7 +52,7 @@ sudo docker run \
   kamon/grafana_graphite
 
 sleep 10
-cd /vagrant/dev && make new-env
+cd /vagrant/dev && ./manage new-env && ./manage pg-createdb
 
 SCRIPT
 
