@@ -70,6 +70,7 @@ main() {
 	cmd-export-ns env "Manage Herokuish environment"
 	cmd-export env-new
 	cmd-export env-set
+	cmd-export env-print
 	cmd-export-ns run "Run Herokuish container"
 	cmd-export run-web
 	cmd-export run-worker

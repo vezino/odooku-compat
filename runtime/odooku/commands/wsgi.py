@@ -1,6 +1,12 @@
+import os
 import click
 
 from odooku.utils import prefix_envvar
+
+try:
+    from newrelic import agent as newrelic_agent
+except ImportError:
+    newrelic_agent = None
 
 
 __all__ = [
@@ -37,24 +43,40 @@ __all__ = [
     envvar=prefix_envvar('CDN'),
     help="Enables Content Delivery through S3 endpoint or S3 custom domain."
 )
+@click.option(
+    '--profile-memory',
+    is_flag=True,
+    help="Enable memory profiler for detecting memory leaks."
+)
 @click.pass_context
-def wsgi(ctx, port, workers, threads, timeout, cdn):
-    debug, dev, config, params, newrelic_agent = (
+def wsgi(ctx, port, workers, threads, timeout, cdn, profile_memory):
+    debug, dev, config, params = (
         ctx.obj['debug'],
         ctx.obj['dev'],
         ctx.obj['config'],
-        ctx.obj['params'],
-        ctx.obj['newrelic_agent']
+        ctx.obj['params']
     )
 
     # Patch odoo config
     config['workers'] = workers
+
+    # Initialize newrelic_agent
+    global newrelic_agent
+    if newrelic_agent and any(key in os.environ for key in [
+                'NEW_RELIC_LICENSE_KEY',
+                'NEW_RELIC_CONFIG_FILE'
+            ]):
+
+        newrelic_agent.initialize()
+    else:
+        newrelic_agent = None
 
     # Keep track of custom config params
     params.TIMEOUT = timeout
     params.CDN_ENABLED = cdn
     extra_options = {
         'newrelic_agent': newrelic_agent,
+        'profile_memory': profile_memory,
         'reload': dev,
     }
 

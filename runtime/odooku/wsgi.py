@@ -2,6 +2,8 @@ import gunicorn.app.base
 from werkzeug.debug import DebuggedApplication
 
 import logging
+import resource
+
 
 _logger = logging.getLogger(__name__)
 
@@ -17,6 +19,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
             worker_class='gthread',
             logger_class='odooku.logger.GunicornLogger',
             newrelic_agent=None,
+            profile_memory=False,
             **options):
 
         self.options = dict(
@@ -31,6 +34,7 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
 
         self.options.update(options)
         self._newrelic_agent = newrelic_agent
+        self._profile_memory = profile_memory
         super(WSGIServer, self).__init__()
 
     @staticmethod
@@ -58,9 +62,28 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
         root.preload()
         openerp.http.root = root
 
+        if self._profile_memory:
+            application = MemoryProfilerWrapper(application)
+            _logger.warning("Memory profiler enabled, do not use in production"
+
+
         if self._newrelic_agent:
             application = self._newrelic_agent.WSGIApplicationWrapper(application)
+            _logger.info("New Relic enabled")
 
         if config['debug_mode']:
             application = DebuggedApplication(application, evalex=True)
+            _logger.warning("Debugger enabled, do not use in production")
+
         return application
+
+
+class MemoryProfilerWrapper(object):
+
+    def __init__(self, application):
+        self._application = application
+
+    def __call__(self, environ, start_response):
+        res = self._application(environ, start_response)
+        _logger.info('Memory usage: %s (kb)' % resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        return res

@@ -1,14 +1,8 @@
 import click
 import urlparse
-import os
 
 from odooku.params import params
 from odooku.utils import prefix_envvar
-
-try:
-    from newrelic import agent as newrelic_agent
-except ImportError:
-    newrelic_agent = None
 
 
 @click.group()
@@ -162,24 +156,12 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     import logging
     logger = logging.getLogger(__name__)
 
-    # Initialize newrelic_agent
-    global newrelic_agent
-    if newrelic_agent and any(key in os.environ for key in [
-                'NEW_RELIC_LICENSE_KEY',
-                'NEW_RELIC_CONFIG_FILE'
-            ]):
-
-        newrelic_agent.initialize()
-    else:
-        newrelic_agent = None
-
     ctx.obj.update({
         'debug': debug,
         'dev': dev,
         'config': config,
         'params': params,
-        'logger': logger,
-        'newrelic_agent': newrelic_agent
+        'logger': logger
     })
 
 
