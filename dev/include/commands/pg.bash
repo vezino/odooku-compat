@@ -16,30 +16,31 @@ parse-database-url() {
 pg-run() {
   docker run \
 		--rm \
-		-it \
+		-i \
 		--net host \
 		-e PGPASSWORD=${db_password} \
+    $2 \
 		postgres:9.5 \
     $1
 }
 
 pg-psql() {
   declare desc="Start a psql shell for the configured database"
-  source $env_path
+  source $local_env_path
   parse-database-url $DATABASE_URL
-  pg-run "psql -U ${db_user} -w -h ${db_host} -p ${db_port} -d ${db_name}"
+  pg-run "psql -U ${db_user} -w -h ${db_host} -p ${db_port} -d ${db_name}" "-t"
 }
 
 pg-createdb() {
   declare desc="Create the configured database"
-  source $env_path
+  source $local_env_path
   parse-database-url $DATABASE_URL
   pg-run "createdb -U $db_user -w -h $db_host -p $db_port $db_name"
 }
 
 pg-dropdb() {
   declare desc="Drop the configured database"
-  source $env_path
+  source $local_env_path
   parse-database-url $DATABASE_URL
   pg-run "dropdb -U $db_user -w -h $db_host -p $db_port $db_name"
 }

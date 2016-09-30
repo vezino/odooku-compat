@@ -2,10 +2,11 @@ env-new() {
 	declare desc="Create a new environment"
 	declare unique=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 32 | head -n 1)
 	declare database_url="postgres://odoo:odoo@localhost:5432/$unique"
+	ensure-dirs
 	title "Creating new environment"
 	echo "Admin password: $unique" | indent
 	echo "Database url: $database_url" | indent
-	tee $env_path > /dev/null <<EOF
+	tee $local_env_path > /dev/null <<EOF
 export DATABASE_URL=$database_url
 export ADMIN_PASSWORD=$unique
 export REDIS_URL=redis://localhost:6379
@@ -21,7 +22,7 @@ env-set() {
 	declare desc="Set environment variables"
 	for var in "$@"
 	do
-		tee -a $env_path > /dev/null <<EOF
+		tee -a $local_env_path > /dev/null <<EOF
 export $var
 EOF
 	done

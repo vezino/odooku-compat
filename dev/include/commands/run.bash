@@ -10,7 +10,7 @@ run-exec() {
     $run_args \
     bin/bash -c \
       "$run_init \
-      ;USER=herokuishuser /bin/herokuish procfile exec $cmd"
+      ;USER=herokuishuser IMPORT_PATH=/nosuchpath /bin/herokuish procfile exec $cmd"
 }
 
 run-shell() {
@@ -20,20 +20,20 @@ run-shell() {
     $run_args \
     bin/bash -c \
       "$run_init \
-      ;USER=herokuishuser /bin/herokuish procfile exec /bin/bash"
+      ;USER=herokuishuser IMPORT_PATH=/nosuchpath /bin/herokuish procfile exec /bin/bash"
 }
 
 run-process() {
   declare desc="Run Herokuish procfile process"
   declare process="${1:-web}"
-  docker rm -f -v $process > /dev/null || true
+  docker rm -f -v $process &> /dev/null || true
   declare container=`docker run \
 		-d \
 		--name $process \
 		$run_args \
 		bin/bash -c \
 			"$run_init \
-			;USER=herokuishuser /bin/herokuish procfile start $process"`
+			;USER=herokuishuser IMPORT_PATH=/nosuchpath /bin/herokuish procfile start $process"`
   docker logs -f $process
 }
 
