@@ -56,8 +56,8 @@ class WSGIServer(BaseApplication):
     @staticmethod
     def _post_request(worker, req, environ, resp):
         memory_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        _logger.debug("Memory threshold status: %s/%s (kb)" % (memory_used, _memory_threshold))
-        if memory_used > _memory_threshold:
+        _logger.debug("Memory used: %s (kb)" % memory_used)
+        if _memory_threshold and memory_used > _memory_threshold:
             _logger.warning("Memory threshold exceeded")
             # Short circuit Gunicorn, by removing the timestamp file
             # for this worker. This will cause the worker process
