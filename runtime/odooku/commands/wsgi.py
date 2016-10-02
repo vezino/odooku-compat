@@ -44,12 +44,17 @@ __all__ = [
     help="Enables Content Delivery through S3 endpoint or S3 custom domain."
 )
 @click.option(
-    '--profile-memory',
-    is_flag=True,
-    help="Enable memory profiler for detecting memory leaks."
+    '--memory-threshold',
+    envvar=prefix_envvar('MEMORY_THRESHOLD'),
+    type=click.INT,
+    help="""
+    Enable memory threshold (Megabytes, divided across all workers).
+    After exceeding the calculated threshold the worker will be restart.
+    Should ideally be set to ~90 percent of available memory.
+    """
 )
 @click.pass_context
-def wsgi(ctx, port, workers, threads, timeout, cdn, profile_memory):
+def wsgi(ctx, port, workers, threads, timeout, cdn, memory_threshold):
     debug, dev, config, params = (
         ctx.obj['debug'],
         ctx.obj['dev'],
@@ -76,7 +81,7 @@ def wsgi(ctx, port, workers, threads, timeout, cdn, profile_memory):
     params.CDN_ENABLED = cdn
     extra_options = {
         'newrelic_agent': newrelic_agent,
-        'profile_memory': profile_memory,
+        'memory_threshold': memory_threshold,
         'reload': dev,
     }
 
