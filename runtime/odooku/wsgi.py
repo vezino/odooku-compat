@@ -64,9 +64,8 @@ class WSGIServer(gunicorn.app.base.BaseApplication):
 
         if self._profile_memory:
             application = MemoryProfilerWrapper(application)
-            _logger.warning("Memory profiler enabled, do not use in production"
-
-
+            _logger.warning("Memory profiler enabled, do not use in production")
+        
         if self._newrelic_agent:
             application = self._newrelic_agent.WSGIApplicationWrapper(application)
             _logger.info("New Relic enabled")
