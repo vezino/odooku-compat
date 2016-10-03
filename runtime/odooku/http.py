@@ -17,10 +17,24 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
+
+IGNORE_EXCEPTIONS = (
+    openerp.osv.orm.except_orm,
+    openerp.exceptions.AccessError,
+    openerp.exceptions.ValidationError,
+    openerp.exceptions.MissingError,
+    openerp.exceptions.AccessDenied,
+    openerp.exceptions.Warning,
+    openerp.exceptions.RedirectWarning,
+    werkzeug.exceptions.HTTPException
+)
+
+
 class WebRequestMixin(object):
 
     def _handle_exception(self, exception):
-        _logger.exception("Request exception", exc_info=True)
+        if not isinstance(exception, IGNORE_EXCEPTIONS):
+            _logger.exception("Exception caught", exc_info=True)
         return super(WebRequestMixin, self)._handle_exception(exception)
 
 
