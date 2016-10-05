@@ -15,25 +15,51 @@ CHUNK_SIZE = 16 * 1024
 
 
 @click.command()
+@click.option(
+    '--module',
+    multiple=True
+)
+@click.option(
+    '--demo-data',
+    is_flag=True,
+    envvar=prefix_envvar('DEMO_DATA')
+)
 @click.pass_context
-def preload(ctx):
-    config, modules = (
-        ctx.obj['config'],
-        ctx.obj['modules']
+def preload(ctx, module, demo_data):
+    config = (
+        ctx.obj['config']
     )
 
+    module = module or ['web']
+    modules = {
+        module_name: 1
+        for module_name in module
+    }
+
     config['init'] = dict(modules)
+
+    if demo_data:
+        config['without_demo'] = ''
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'])
 
 
 @click.command()
+@click.option(
+    '--module',
+    multiple=True
+)
 @click.pass_context
-def update(ctx):
-    config, modules = (
-        ctx.obj['config'],
-        ctx.obj['modules']
+def update(ctx, module):
+    config = (
+        ctx.obj['config']
     )
+
+    module = module or ['all']
+    modules = {
+        module_name: 1
+        for module_name in module
+    }
 
     config['update'] = dict(modules)
     from openerp.modules.registry import RegistryManager
@@ -71,20 +97,21 @@ def dump(ctx, db_name, s3_file):
     db_name = db_name or config.get('db_name', '').split(',')[0]
     from openerp.api import Environment
     from openerp.service import db
-    with Environment.manage():
-        with tempfile.TemporaryFile() as t:
+    with tempfile.TemporaryFile() as t:
+        with Environment.manage():
             db.dump_db(db_name, t)
-            t.seek(0)
-            if s3_file:
-                from odooku.s3 import pool as s3_pool
-                s3_pool.client.upload_fileobj(t, s3_pool.bucket, s3_file)
-            else:
-                # Pipe to stdout
-                while True:
-                    chunk = t.read(CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    sys.stdout.write(chunk)
+
+    t.seek(0)
+    if s3_file:
+        from odooku.s3 import pool as s3_pool
+        s3_pool.client.upload_fileobj(t, s3_pool.bucket, s3_file)
+    else:
+        # Pipe to stdout
+        while True:
+            chunk = t.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            sys.stdout.write(chunk)
 
 
 @click.command()
@@ -122,19 +149,20 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
     db_name = db_name or config.get('db_name', '').split(',')[0]
     from openerp.api import Environment
     from openerp.service import db
-    with Environment.manage():
-        with tempfile.NamedTemporaryFile(delete=False) as t:
-            if s3_file:
-                from odooku.s3 import pool as s3_pool
-                s3_pool.client.download_fileobj(s3_pool.bucket, s3_file, t)
-            else:
-                # Read from stdin
-                while True:
-                    chunk = sys.stdin.read(CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    t.write(chunk)
-            t.close()
+    with tempfile.NamedTemporaryFile(delete=False) as t:
+        if s3_file:
+            from odooku.s3 import pool as s3_pool
+            s3_pool.client.download_fileobj(s3_pool.bucket, s3_file, t)
+        else:
+            # Read from stdin
+            while True:
+                chunk = sys.stdin.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                t.write(chunk)
+        t.close()
+
+        with Environment.manage():
             db.restore_db(
                 db_name,
                 t.name,
@@ -144,21 +172,14 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
                 skip_pg=skip_pg,
                 skip_filestore=skip_filestore
             )
-            os.unlink(t.name)
+
+        os.unlink(t.name)
 
 
 @click.group()
-@click.option(
-    '--module',
-    multiple=True
-)
 @click.pass_context
-def database(ctx, module):
-    module = module or ['all']
-    ctx.obj['modules'] = {
-        module_name: 1
-        for module_name in module
-    }
+def database(ctx):
+    pass
 
 
 database.add_command(preload)

@@ -66,17 +66,12 @@ from odooku.utils import prefix_envvar
     '--s3-addressing-style',
     envvar="S3_ADDRESSING_STYLE",
     type=click.Choice(['path', 'virtual']),
-    help="S3 addressing style.."
+    help="S3 addressing style."
 )
 @click.option(
     '--addons',
     required=True,
     envvar=prefix_envvar('ADDONS')
-)
-@click.option(
-    '--demo-data',
-    is_flag=True,
-    envvar=prefix_envvar('DEMO_DATA')
 )
 @click.option(
     '--admin-password',
@@ -101,7 +96,7 @@ from odooku.utils import prefix_envvar
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_endpoint_url,
         s3_custom_domain, s3_addressing_style,
-        addons, demo_data, admin_password, debug, dev, statsd_host):
+        addons, admin_password, debug, dev, statsd_host):
 
     import odooku.logger
     odooku.logger.setup(debug=debug, statsd_host=statsd_host)
@@ -147,7 +142,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['db_maxconn'] = database_maxconn
 
     config['demo'] = {}
-    config['without_demo'] = 'all' if not demo_data else ''
+    config['without_demo'] = 'all'
     config['admin_passwd'] = admin_password
     config['debug_mode'] = debug
     config['dev_mode'] = dev
