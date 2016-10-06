@@ -101,17 +101,17 @@ def dump(ctx, db_name, s3_file):
         with Environment.manage():
             db.dump_db(db_name, t)
 
-    t.seek(0)
-    if s3_file:
-        from odooku.s3 import pool as s3_pool
-        s3_pool.client.upload_fileobj(t, s3_pool.bucket, s3_file)
-    else:
-        # Pipe to stdout
-        while True:
-            chunk = t.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            sys.stdout.write(chunk)
+        t.seek(0)
+        if s3_file:
+            from odooku.s3 import pool as s3_pool
+            s3_pool.client.upload_fileobj(t, s3_pool.bucket, s3_file)
+        else:
+            # Pipe to stdout
+            while True:
+                chunk = t.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                sys.stdout.write(chunk)
 
 
 @click.command()
