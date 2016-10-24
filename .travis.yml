@@ -1,0 +1,21 @@
+dist: trusty
+language: bash
+
+services:
+  - docker
+
+before_install:
+  - curl -L https://api.github.com/repos/adaptivdesign/devoku/tarball | tar xz /tmp/devoku
+  - export PATH=$PATH:/tmp/devoku/bin
+
+before_script:
+  - devoku env new
+  - devoku build
+  - devoku service postgres start
+  - devoku service redis start
+  - devoku service s3 start
+  - devoku pg createdb
+  - devoku run odooku preload --demo-data
+
+script:
+  - devoku run odooku tests
