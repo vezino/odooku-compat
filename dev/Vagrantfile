@@ -7,15 +7,12 @@ $INIT = <<SCRIPT
 sudo mkdir -p /var/devoku
 sudo chown $USER /var/devoku
 
+export DEVOKU_LOCAL_PREFIX=/var/devoku
+export DEVOKU_SHARE_DIR=/vagrant
 tee ~/.bashrc -a > /dev/null <<EOF
-DEVOKU_LOCAL_PREFIX=/var/devoku
-DEVOKU_SHARE_DIR=/vagrant
+export DEVOKU_LOCAL_PREFIX=/var/devoku
+export DEVOKU_SHARE_DIR=/vagrant
 EOF
-source ~/.bashrc
-
-devoku service postgres up
-devoku service redis up
-devoku service s3 up
 
 SCRIPT
 
@@ -31,7 +28,7 @@ Vagrant.configure(2) do |config|
 
   config.vm.box = "adaptivdesign/devoku"
   config.vm.synced_folder "..", "/vagrant"
-  config.vm.provision "shell", inline: $INIT, privileged: false
+  config.vm.provision "shell", inline: $INIT, privileged: false, keep_color: true
 
   config.vm.network "forwarded_port", guest: 8000, host: 8000
   config.vm.network "forwarded_port", guest: 4569, host: 4569
