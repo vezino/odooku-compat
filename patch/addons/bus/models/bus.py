@@ -184,12 +184,10 @@ class ImDispatch(object):
                 time.sleep(TIMEOUT)
 
     def start(self):
-        # PATCH !!
-        # Force threaded bus
-        self.Event = threading.Event
-        t = threading.Thread(name="%s.Bus" % __name__, target=self.run)
-        t.daemon = True
-        t.start()
+        # gevent mode
+        import gevent
+        self.Event = gevent.event.Event
+        gevent.spawn(self.run)
         return self
 
 dispatch = ImDispatch().start()

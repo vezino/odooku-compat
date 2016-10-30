@@ -42,8 +42,10 @@ class ir_attachment(osv.osv):
 
     def _data_set(self, cr, uid, id, name, value, arg, context=None):
         res = super(ir_attachment, self)._data_set(cr, uid, id, name, value, arg, context=None)
-        if s3_pool:
+        location = self._storage(cr, uid, context)
+        if s3_pool and location != 'db':
             attach = self.browse(cr, uid, id, context=context)
+            _logger.info(attach.store_fname)
             s3_exists = True
             try:
                 self._s3_put(cr, uid, attach.store_fname, content_type=attach.mimetype)

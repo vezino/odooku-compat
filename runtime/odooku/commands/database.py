@@ -30,18 +30,15 @@ def preload(ctx, module, demo_data):
         ctx.obj['config']
     )
 
-    module = module or ['web']
-    modules = {
-        module_name: 1
-        for module_name in module
-    }
+    if module:
+        modules = {
+            module_name: 1
+            for module_name in module
+        }
+        config['init'] = dict(modules)
 
-    config['init'] = dict(modules)
-
-    if demo_data:
-        config['without_demo'] = ''
     from openerp.modules.registry import RegistryManager
-    registry = RegistryManager.new(config['db_name'])
+    registry = RegistryManager.new(config['db_name'], force_demo=demo_data, update_module=True)
 
 
 @click.command()

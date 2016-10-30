@@ -10,11 +10,10 @@ import resource
 
 _logger = logging.getLogger(__name__)
 
-_memory_threshold = None
-
-
 
 class WSGIServer(BaseApplication):
+
+    _memory_threshold = None
 
     def __init__(
             self,
@@ -26,21 +25,24 @@ class WSGIServer(BaseApplication):
             logger_class='odooku.logger.GunicornLogger',
             newrelic_agent=None,
             memory_threshold=None,
+            ready_handler=None,
             **options):
 
-        global _memory_threshold
         self.options = dict(
             bind='%s:%s' % (interface, port),
             workers=workers,
             threads=threads,
             worker_class=worker_class,
             logger_class=logger_class,
-            # Preloading is not desired.
             preload_app=False
         )
 
+        # Apply additonal options / overrides
         self.options.update(options)
+
+        # Custom options
         self._newrelic_agent = newrelic_agent
+        self._ready_handler = ready_handler
 
         if memory_threshold:
             # Divide accross the amount of workers minus the memory
@@ -49,15 +51,15 @@ class WSGIServer(BaseApplication):
             memory_threshold -= resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             memory_threshold = int(math.floor((memory_threshold / workers)))
 
-        _memory_threshold = memory_threshold
-
+        # Global options (accessible by static methods)
+        WSGIServer._memory_threshold = memory_threshold
         super(WSGIServer, self).__init__()
 
     @staticmethod
     def _post_request(worker, req, environ, resp):
         memory_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         _logger.debug("Memory used: %s (kb)" % memory_used)
-        if _memory_threshold and memory_used > _memory_threshold:
+        if WSGIServer._memory_threshold and memory_used > WSGIServer._memory_threshold:
             _logger.warning("Memory threshold exceeded")
             # Short circuit Gunicorn, by removing the timestamp file
             # for this worker. This will cause the worker process
@@ -69,14 +71,21 @@ class WSGIServer(BaseApplication):
             "%s: %s" % (key, val) for (key, val) in
             self.options.iteritems()
         ]))
+
         self.cfg.set('post_request', self._post_request)
+        if self._ready_handler:
+            self.cfg.set('when_ready', self._ready_handler)
+
         for key, value in self.options.iteritems():
             self.cfg.set(key, value)
 
     def load(self):
-        global _memory_threshold
-
         _logger.info("Loading Odoo WSGI application")
+        if self.cfg.worker_class == 'gevent':
+            _logger.info("Applying gevent patches")
+            import psycogreen.gevent
+            psycogreen.gevent.patch_psycopg()
+
         from openerp.service.wsgi_server import application
         from openerp.tools import config
 
@@ -97,13 +106,24 @@ class WSGIServer(BaseApplication):
             application = DebuggedApplication(application, evalex=True)
             _logger.warning("Debugger enabled, do not use in production")
 
-        if _memory_threshold:
+        if self._memory_threshold:
             memory_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            _logger.info("Memory threshold status: %s/%s (kb)" % (memory_used, _memory_threshold))
-            if memory_used > _memory_threshold:
+            _logger.info("Memory threshold status: %s/%s (kb)" % (memory_used, self._memory_threshold))
+            if memory_used > self._memory_threshold:
                 _logger.critical("Memory threshold exceeded during load, disabling threshold")
-                _memory_threshold = None
+                self._memory_threshold = None
+
         return application
+
+    def load_registry(self):
+        from openerp.modules.registry import RegistryManager
+        from openerp.tools import config
+        registry = RegistryManager.new(config['db_name'])
+
+    def run(self):
+        _logger.info("Starting Odoo WSGI server")
+        self.load_registry()
+        super(WSGIServer, self).run()
 
 
 class WSGIApplicationWrapper(object):
