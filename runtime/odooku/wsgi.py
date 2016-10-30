@@ -19,9 +19,7 @@ class WSGIServer(BaseApplication):
             self,
             port,
             workers=3,
-            threads=20,
             interface='0.0.0.0',
-            worker_class='gthread',
             logger_class='odooku.logger.GunicornLogger',
             newrelic_agent=None,
             memory_threshold=None,
@@ -31,8 +29,7 @@ class WSGIServer(BaseApplication):
         self.options = dict(
             bind='%s:%s' % (interface, port),
             workers=workers,
-            threads=threads,
-            worker_class=worker_class,
+            worker_class='gevent',
             logger_class=logger_class,
             preload_app=False
         )
@@ -80,12 +77,13 @@ class WSGIServer(BaseApplication):
             self.cfg.set(key, value)
 
     def load(self):
-        _logger.info("Loading Odoo WSGI application")
-        if self.cfg.worker_class == 'gevent':
-            _logger.info("Applying gevent patches")
-            import psycogreen.gevent
-            psycogreen.gevent.patch_psycopg()
+        _logger.info("Applyling psycogreen patches")
+        import psycogreen.gevent
+        psycogreen.gevent.patch_psycopg()
 
+        _logger.info("Loading Odoo WSGI application")
+
+        self.load_registry()
         from openerp.service.wsgi_server import application
         from openerp.tools import config
 
@@ -122,7 +120,6 @@ class WSGIServer(BaseApplication):
 
     def run(self):
         _logger.info("Starting Odoo WSGI server")
-        self.load_registry()
         super(WSGIServer, self).run()
 
 

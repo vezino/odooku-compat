@@ -24,13 +24,6 @@ __all__ = [
     help="Number of wsgi workers to run."
 )
 @click.option(
-    '--threads', '-t',
-    default=20,
-    envvar=prefix_envvar('THREADS'),
-    type=click.INT,
-    help="Number of threads per wsgi worker, should be a minimum of 2."
-)
-@click.option(
     '--timeout',
     default=25,
     envvar=prefix_envvar('TIMEOUT'),
@@ -54,7 +47,7 @@ __all__ = [
     """
 )
 @click.pass_context
-def wsgi(ctx, port, workers, threads, timeout, cdn, memory_threshold):
+def wsgi(ctx, port, workers, timeout, cdn, memory_threshold):
     debug, dev, config, params = (
         ctx.obj['debug'],
         ctx.obj['dev'],
@@ -89,9 +82,8 @@ def wsgi(ctx, port, workers, threads, timeout, cdn, memory_threshold):
     server = WSGIServer(
         port,
         workers=workers,
-        threads=threads,
         timeout=timeout,
         **extra_options
     )
-    
+
     server.run()

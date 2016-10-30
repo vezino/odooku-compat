@@ -184,9 +184,11 @@ class ImDispatch(object):
                 time.sleep(TIMEOUT)
 
     def start(self):
-        # gevent mode
+        # PATCH !!
+        # Force gevent mode
         import gevent
-        self.Event = gevent.event.Event
+        from gevent.event import Event
+        self.Event = Event
         gevent.spawn(self.run)
         return self
 
