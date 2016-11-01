@@ -31,6 +31,13 @@ __all__ = [
     help="Worker timeout."
 )
 @click.option(
+    '--bus-timeout',
+    default=25,
+    envvar=prefix_envvar('BUS_TIMEOUT'),
+    type=click.INT,
+    help="Odoo bus timeout"
+)
+@click.option(
     '--cdn',
     is_flag=True,
     envvar=prefix_envvar('CDN'),
@@ -47,7 +54,7 @@ __all__ = [
     """
 )
 @click.pass_context
-def wsgi(ctx, port, workers, timeout, cdn, memory_threshold):
+def wsgi(ctx, port, workers, timeout, bus_timeout, cdn, memory_threshold):
     debug, dev, config, params = (
         ctx.obj['debug'],
         ctx.obj['dev'],
@@ -70,7 +77,7 @@ def wsgi(ctx, port, workers, timeout, cdn, memory_threshold):
         newrelic_agent = None
 
     # Keep track of custom config params
-    params.TIMEOUT = timeout
+    params.BUS_TIMEOUT = bus_timeout
     params.CDN_ENABLED = cdn
     extra_options = {
         'newrelic_agent': newrelic_agent,
