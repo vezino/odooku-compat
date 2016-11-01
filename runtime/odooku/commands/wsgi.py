@@ -25,10 +25,10 @@ __all__ = [
 )
 @click.option(
     '--timeout',
-    default=25,
+    default=300,
     envvar=prefix_envvar('TIMEOUT'),
     type=click.INT,
-    help="Request timeout. Keep it below Heroku's timeout."
+    help="Worker timeout."
 )
 @click.option(
     '--cdn',

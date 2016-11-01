@@ -19,6 +19,7 @@ class WSGIServer(BaseApplication):
             self,
             port,
             workers=3,
+            timeout=300,
             interface='0.0.0.0',
             logger_class='odooku.logger.GunicornLogger',
             newrelic_agent=None,
