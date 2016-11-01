@@ -30,6 +30,7 @@ class WSGIServer(BaseApplication):
         self.options = dict(
             bind='%s:%s' % (interface, port),
             workers=workers,
+            timeout=timeout,
             worker_class='gevent',
             logger_class=logger_class,
             preload_app=False
