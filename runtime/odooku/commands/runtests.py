@@ -24,15 +24,13 @@ def runtests(ctx, module):
 
     config['without_demo'] = '' # Enables demo data
     config['test_enable'] = True
+    config['xmlrpc_port'] = 8000
 
-    from openerp.tests.common import PORT, HOST
+    from openerp.tests.common import PORT
     from odooku.testing import TestServer
     server = TestServer(
         PORT,
-        interface=HOST,
-        workers=1,
-        threads=10,
-        timeout=30
+        workers=1
     )
 
     server.run()

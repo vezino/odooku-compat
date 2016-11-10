@@ -19,6 +19,9 @@ _logger = logging.getLogger(__name__)
 from odooku.params import params
 TIMEOUT = getattr(params, 'BUS_TIMEOUT', 25)
 
+import gevent
+from gevent.event import Event
+
 # PATCH !!
 def _get_imbus_db():
     dbs = openerp.tools.config.get('db_name', '').split(',')
@@ -186,8 +189,6 @@ class ImDispatch(object):
     def start(self):
         # PATCH !!
         # Force gevent mode
-        import gevent
-        from gevent.event import Event
         self.Event = Event
         gevent.spawn(self.run)
         return self

@@ -118,7 +118,7 @@ class WSGIServer(BaseApplication):
     def load_registry(self):
         from openerp.modules.registry import RegistryManager
         from openerp.tools import config
-        registry = RegistryManager.new(config['db_name'])
+        self._registry = RegistryManager.new(config['db_name'])
 
     def run(self):
         _logger.info("Starting Odoo WSGI server")

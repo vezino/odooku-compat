@@ -74,6 +74,11 @@ from odooku.utils import prefix_envvar
     envvar=prefix_envvar('ADDONS')
 )
 @click.option(
+    '--tmp-dir',
+    default='/tmp/odooku',
+    envvar=prefix_envvar('TMP_DIR')
+)
+@click.option(
     '--admin-password',
     envvar=prefix_envvar('ADMIN_PASSWORD'),
     help="Odoo admin password."
@@ -96,7 +101,7 @@ from odooku.utils import prefix_envvar
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_endpoint_url,
         s3_custom_domain, s3_addressing_style,
-        addons, admin_password, debug, dev, statsd_host):
+        addons, tmp_dir, admin_password, debug, dev, statsd_host):
 
     import odooku.logger
     odooku.logger.setup(debug=debug, statsd_host=statsd_host)
@@ -133,6 +138,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
     db_name = database_url.path[1:] if database_url.path else ''
+    config['data_dir'] = tmp_dir
     config['addons_path'] = addons
     config['db_name'] = db_name
     config['db_user'] = database_url.username
