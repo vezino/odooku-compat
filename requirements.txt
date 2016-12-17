@@ -1,6 +1,4 @@
 boto3>=1.4.0
 click==6.6
-gunicorn==19.6
 redis==2.10.5
-pistil==0.2.0
 bpython==0.15.0

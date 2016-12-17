@@ -10,12 +10,7 @@ setup(
     license='Apache Software License',
     packages=find_packages(),
     zip_safe=False,
-    install_requires=[
-        'click>=6.6',
-        'gunicorn>=19.6',
-        'redis>=2.10.5',
-        'pistil>=0.2.0',
-    ],
+    install_requires=[],
     entry_points='''
         [console_scripts]
         odooku=odooku.cli:entrypoint
