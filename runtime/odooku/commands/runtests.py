@@ -1,5 +1,11 @@
 import click
 
+import gevent
+
+from odooku.wsgi import WSGIServer
+from openerp.modules.registry import RegistryManager
+
+
 __all__ = [
     'runtests'
 ]
@@ -27,10 +33,10 @@ def runtests(ctx, module):
     config['xmlrpc_port'] = 8000
 
     from openerp.tests.common import PORT
-    from odooku.testing import TestServer
-    server = TestServer(
-        PORT,
-        workers=1
+
+    server = WSGIServer(
+        PORT
     )
 
-    server.run()
+    gevent.spawn(server.serve_forever)
+    registry = RegistryManager.new(config['db_name'])

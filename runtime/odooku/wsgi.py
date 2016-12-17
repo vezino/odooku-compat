@@ -1,11 +1,11 @@
 from gevent.wsgi import WSGIServer as BaseWSGIServer
 from werkzeug.debug import DebuggedApplication
 
+import openerp.http
 from openerp.service.wsgi_server import application
 from openerp.tools import config
 
 from odooku.http import Root
-import openerp.http
 
 import logging
 

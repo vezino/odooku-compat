@@ -1,5 +1,6 @@
 import click
 
+from odooku.cron import CronRunner
 from odooku.utils import prefix_envvar
 
 
@@ -11,24 +12,24 @@ __all__ = [
 @click.command()
 @click.pass_context
 @click.option(
-    '--workers', '-w',
-    default=2,
-    envvar=prefix_envvar('WORKERS'),
+    '--interval',
+    default=10,
+    envvar=prefix_envvar('CRON_INTERVAL'),
     type=click.INT,
-    help="Number of cron workers to run."
+    help="Time between cron cycles."
 )
 @click.option(
     '--once',
     is_flag=True,
     envvar=prefix_envvar('CRON_ONCE')
 )
-def cron(ctx, workers, once):
+def cron(ctx, interval, once):
     config = (
         ctx.obj['config']
     )
 
-    import odooku.cron
+    cron_runner = CronRunner()
     if once:
-        odooku.cron.run_once()
+        cron_runner.run_once()
     else:
-        odooku.cron.run(workers=workers)
+        cron_runner.run_forever(interval=interval)
