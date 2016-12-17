@@ -17,8 +17,9 @@ __all__ = [
 )
 @click.pass_context
 def runtests(ctx, module):
-    config = (
-        ctx.obj['config']
+    config, logger = (
+        ctx.obj['config'],
+        ctx.obj['logger'],
     )
 
     if module:
@@ -35,8 +36,14 @@ def runtests(ctx, module):
     from openerp.tests.common import PORT
 
     server = WSGIServer(
-        PORT
+        PORT,
+        max_accept=1
     )
 
     gevent.spawn(server.serve_forever)
     registry = RegistryManager.new(config['db_name'])
+
+    total = (registry._assertion_report.successes + registry._assertion_report.failures)
+    failures = registry._assertion_report.failures
+    logger.info("Completed (%s) tests. %s failures." % (total, failures))
+    return 1 if failures else 0
