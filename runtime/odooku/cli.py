@@ -4,6 +4,17 @@ import urlparse
 from odooku.params import params
 from odooku.utils import prefix_envvar
 
+# Setup logger first, then import further modules
+import odooku.logger
+odooku.logger.setup()
+
+import openerp
+from openerp.tools import config
+from odooku import redis, s3
+
+import logging
+_logger = logging.getLogger(__name__)
+
 
 @click.group()
 @click.option(
@@ -14,7 +25,7 @@ from odooku.utils import prefix_envvar
 )
 @click.option(
     '--database-maxconn',
-    default=6, # 20 / 3
+    default=20,
     envvar=prefix_envvar("DATABASE_MAXCONN"),
     type=click.INT,
     help="""
@@ -23,13 +34,8 @@ from odooku.utils import prefix_envvar
     """
 )
 @click.option(
-    '--redis-url',
-    envvar="REDIS_URL",
-    help="redis://[password]@[host]:[port]/[database number]"
-)
-@click.option(
     '--redis-maxconn',
-    default=6, # 20 / 3
+    default=20,
     envvar=prefix_envvar("REDIS_MAXCONN"),
     type=click.INT,
     help="""
@@ -37,6 +43,12 @@ from odooku.utils import prefix_envvar
     See Heroku Redis plans.
     """
 )
+@click.option(
+    '--redis-url',
+    envvar="REDIS_URL",
+    help="redis://[password]@[host]:[port]/[database number]"
+)
+
 @click.option(
     '--aws-access-key-id',
     envvar="AWS_ACCESS_KEY_ID",
@@ -89,11 +101,6 @@ from odooku.utils import prefix_envvar
     envvar=prefix_envvar('DEBUG')
 )
 @click.option(
-    '--dev',
-    is_flag=True,
-    envvar=prefix_envvar('DEV')
-)
-@click.option(
     '--statsd-host',
     envvar=prefix_envvar('STATSD_HOST')
 )
@@ -101,14 +108,11 @@ from odooku.utils import prefix_envvar
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         aws_access_key_id, aws_secret_access_key, s3_bucket, s3_endpoint_url,
         s3_custom_domain, s3_addressing_style,
-        addons, tmp_dir, admin_password, debug, dev, statsd_host):
+        addons, tmp_dir, admin_password, debug, statsd_host):
 
-    import odooku.logger
-    odooku.logger.setup(debug=debug, statsd_host=statsd_host)
 
     # Setup S3
-    import odooku.s3
-    odooku.s3.configure(
+    s3.configure(
         bucket=s3_bucket,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
@@ -118,9 +122,8 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     )
 
     # Setup Redis
-    import odooku.redis
     redis_url = urlparse.urlparse(redis_url) if redis_url else None
-    odooku.redis.configure(
+    redis.configure(
         host=redis_url.hostname if redis_url else None,
         port=redis_url.port if redis_url else None,
         password=redis_url.password if redis_url else None,
@@ -128,13 +131,12 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         maxconn=redis_maxconn
     )
 
-    import openerp
+
     # Even if 1 worker is running, we can still be running multiple
     # heroku instances.
     openerp.multi_process = True
 
     # Patch odoo config
-    from openerp.tools import config
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
     db_name = database_url.path[1:] if database_url.path else ''
@@ -151,18 +153,13 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['without_demo'] = 'all'
     config['admin_passwd'] = admin_password
     config['debug_mode'] = debug
-    config['dev_mode'] = dev
     config['list_db'] = not bool(db_name)
-
-    import logging
-    logger = logging.getLogger(__name__)
 
     ctx.obj.update({
         'debug': debug,
-        'dev': dev,
         'config': config,
         'params': params,
-        'logger': logger
+        'logger': _logger
     })
 
 

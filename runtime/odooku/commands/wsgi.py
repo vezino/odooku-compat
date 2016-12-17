@@ -1,7 +1,9 @@
 import os
 import click
 
+from odooku.wsgi import WSGIServer
 from odooku.utils import prefix_envvar
+from werkzeug._reloader import run_with_reloader
 
 try:
     from newrelic import agent as newrelic_agent
@@ -15,27 +17,13 @@ __all__ = [
 
 
 @click.command()
-@click.argument('port', nargs=1)
-@click.option(
-    '--workers', '-w',
-    default=3,
-    envvar=prefix_envvar('WORKERS'),
-    type=click.INT,
-    help="Number of wsgi workers to run."
-)
+@click.argument('port', nargs=1, type=int)
 @click.option(
     '--timeout',
-    default=300,
+    default=25,
     envvar=prefix_envvar('TIMEOUT'),
     type=click.INT,
-    help="Worker timeout."
-)
-@click.option(
-    '--bus-timeout',
-    default=25,
-    envvar=prefix_envvar('BUS_TIMEOUT'),
-    type=click.INT,
-    help="Odoo bus timeout"
+    help="Longpolling timeout"
 )
 @click.option(
     '--cdn',
@@ -44,26 +32,24 @@ __all__ = [
     help="Enables Content Delivery through S3 endpoint or S3 custom domain."
 )
 @click.option(
-    '--memory-threshold',
-    envvar=prefix_envvar('MEMORY_THRESHOLD'),
-    type=click.INT,
-    help="""
-    Enable memory threshold (Megabytes, divided across all workers).
-    After exceeding the calculated threshold the worker will be restart.
-    Should ideally be set to ~90 percent of available memory.
-    """
+    '--dev',
+    is_flag=True,
+    envvar=prefix_envvar('DEV')
 )
 @click.pass_context
-def wsgi(ctx, port, workers, timeout, bus_timeout, cdn, memory_threshold):
-    debug, dev, config, params = (
+def wsgi(ctx, port, timeout, cdn, dev):
+    debug, config, params, logger = (
         ctx.obj['debug'],
-        ctx.obj['dev'],
         ctx.obj['config'],
-        ctx.obj['params']
+        ctx.obj['params'],
+        ctx.obj['logger']
     )
 
-    # Patch odoo config
-    config['workers'] = workers
+    # Patch odoo config, since we run with gevent
+    # we do not need multiple workers, but Odoo needs
+    # the fooled.
+    config['workers'] = 3
+    config['dev_mode'] = dev
 
     # Initialize newrelic_agent
     global newrelic_agent
@@ -77,20 +63,15 @@ def wsgi(ctx, port, workers, timeout, bus_timeout, cdn, memory_threshold):
         newrelic_agent = None
 
     # Keep track of custom config params
-    params.BUS_TIMEOUT = bus_timeout
+    params.TIMEOUT = timeout
     params.CDN_ENABLED = cdn
-    extra_options = {
-        'newrelic_agent': newrelic_agent,
-        'memory_threshold': memory_threshold,
-        'reload': dev,
-    }
 
-    from odooku.wsgi import WSGIServer
-    server = WSGIServer(
-        port,
-        workers=workers,
-        timeout=timeout,
-        **extra_options
-    )
+    def serve():
+        server = WSGIServer(port, newrelic_agent=newrelic_agent)
+        server.serve_forever()
 
-    server.run()
+    if dev:
+        logger.warning("Running in development mode")
+        run_with_reloader(serve)
+    else:
+        serve()

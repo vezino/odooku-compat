@@ -3,7 +3,12 @@ import tempfile
 import sys
 import os
 
+from odooku.s3 import pool as s3_pool
 from odooku.utils import prefix_envvar
+
+from openerp.api import Environment
+from openerp.service import db
+from openerp.modules.registry import RegistryManager
 
 
 __all__ = [
@@ -37,7 +42,6 @@ def preload(ctx, module, demo_data):
         }
         config['init'] = dict(modules)
 
-    from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'], force_demo=demo_data, update_module=True)
 
 
@@ -59,7 +63,6 @@ def update(ctx, module):
     }
 
     config['update'] = dict(modules)
-    from openerp.modules.registry import RegistryManager
     registry = RegistryManager.new(config['db_name'], update_module=True)
 
 
@@ -70,8 +73,6 @@ def newdbuuid(ctx, new_dbuuid):
         ctx.obj['config']
     )
 
-    from openerp.modules.registry import RegistryManager
-    from openerp.api import Environment
     registry = RegistryManager.get(config['db_name'])
     with Environment.manage():
         with registry.cursor() as cr:
@@ -92,15 +93,12 @@ def dump(ctx, db_name, s3_file):
     )
 
     db_name = db_name or config.get('db_name', '').split(',')[0]
-    from openerp.api import Environment
-    from openerp.service import db
     with tempfile.TemporaryFile() as t:
         with Environment.manage():
             db.dump_db(db_name, t)
 
         t.seek(0)
         if s3_file:
-            from odooku.s3 import pool as s3_pool
             s3_pool.client.upload_fileobj(t, s3_pool.bucket, s3_file)
         else:
             # Pipe to stdout
@@ -144,11 +142,8 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
         config['update']['all'] = 1
 
     db_name = db_name or config.get('db_name', '').split(',')[0]
-    from openerp.api import Environment
-    from openerp.service import db
     with tempfile.NamedTemporaryFile(delete=False) as t:
         if s3_file:
-            from odooku.s3 import pool as s3_pool
             s3_pool.client.download_fileobj(s3_pool.bucket, s3_file, t)
         else:
             # Read from stdin

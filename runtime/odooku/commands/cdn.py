@@ -1,6 +1,10 @@
 import click
 import os
 
+import openerp.modules
+import openerp.tools
+from odooku.s3 import pool as s3_pool
+
 
 __all__ = [
     'cdn'
@@ -14,9 +18,6 @@ def collect(ctx):
         ctx.obj['logger']
     )
 
-    import openerp.modules
-    import openerp.tools
-    from odooku.s3 import pool as s3_pool
     for module in openerp.modules.get_modules():
         static_dir = os.path.join(openerp.modules.get_module_path(module), 'static')
         if os.path.exists(static_dir):

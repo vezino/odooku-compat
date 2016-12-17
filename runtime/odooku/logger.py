@@ -6,9 +6,6 @@ import traceback
 import logging
 from logging.config import dictConfig
 
-from gunicorn.glogging import Logger as BaseGunicornLogger
-
-
 METRIC_VAR = "metric"
 VALUE_VAR = "value"
 MTYPE_VAR = "mtype"
@@ -97,64 +94,6 @@ class OdookuLogger(logging.Logger):
             logging.Logger.warning(self, "Failed to log to statsd", exc_info=True)
 
 
-class GunicornLogger(BaseGunicornLogger):
-
-    def __init__(self, cfg):
-        super(GunicornLogger, self).__init__(cfg)
-        self._logger = logging.getLogger('gunicorn')
-
-    def setup(self, cfg):
-        # Do not setup, this will override our logging config
-        pass
-
-    def log(self, lvl, msg, *args, **kwargs):
-        if isinstance(lvl, basestring):
-            lvl = self.LOG_LEVELS.get(lvl.lower(), logging.INFO)
-        self._logger.log(lvl, msg, *args, **kwarg)
-
-    def info(self, msg, *args, **kwargs):
-        self._logger.info(msg, *args, **kwargs)
-
-    def debug(self, msg, *args, **kwargs):
-        self._logger.debug(msg, *args, **kwargs)
-
-    def critical(self, msg, *args, **kwargs):
-        self._logger.critical(msg, *args, **kwargs)
-        self._logger.increment("gunicorn.log.critical", 1)
-
-    def error(self, msg, *args, **kwargs):
-        self._logger.error(msg, *args, **kwargs)
-        self._logger.increment("gunicorn.log.error", 1)
-
-    def warning(self, msg, *args, **kwargs):
-        self._logger.warning(msg, *args, **kwargs)
-        self._logger.increment("gunicorn.log.warning", 1)
-
-    def exception(self, msg, *args, **kwargs):
-        self._logger.error(msg, *args, **kwargs)
-        self._logger.increment("gunicorn.log.exception", 1)
-
-    def access(self, resp, req, environ, request_time):
-        # Metrics
-        duration_in_ms = request_time.seconds * 1000 + float(request_time.microseconds) / 10 ** 3
-        status = resp.status
-        if isinstance(status, str):
-            status = int(status.split(None, 1)[0])
-
-        self._logger.histogram("gunicorn.request.duration", duration_in_ms)
-        self._logger.increment("gunicorn.requests", 1)
-        self._logger.increment("gunicorn.request.status.%d" % status, 1)
-
-        safe_atoms = self.atoms_wrapper_class(
-            self.atoms(resp, req, environ, request_time)
-        )
-
-        try:
-            self.info(self.cfg.access_log_format % safe_atoms)
-        except:
-            self.error(traceback.format_exc())
-
-
 def setup(debug=False, statsd_host=None):
     level = 'DEBUG' if debug else 'INFO'
     dictConfig(dict(
@@ -177,7 +116,7 @@ def setup(debug=False, statsd_host=None):
         },
         formatters={
             'simple': {
-                'format': '[%(process)d] [%(levelname)s] %(message)s',
+                'format': '[%(levelname)s] %(message)s',
                 'class': 'logging.Formatter'
             },
         }

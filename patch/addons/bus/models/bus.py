@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 # longpolling timeout connection
 # Max is 30 seconds for heroku platform
 from odooku.params import params
-TIMEOUT = getattr(params, 'BUS_TIMEOUT', 25)
+TIMEOUT = getattr(params, 'TIMEOUT', 25)
 
 import gevent
 from gevent.event import Event
