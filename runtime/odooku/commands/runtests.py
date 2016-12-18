@@ -42,9 +42,12 @@ def runtests(ctx, module):
     )
 
     gevent.spawn(server.serve_forever)
-    registry = RegistryManager.new(config['db_name'])
 
-    total = (registry._assertion_report.successes + registry._assertion_report.failures)
-    failures = registry._assertion_report.failures
-    logger.info("Completed (%s) tests. %s failures." % (total, failures))
-    sys.exit(1 if failures else 0)
+    def runtests():
+        registry = RegistryManager.new(config['db_name'])
+        total = (registry._assertion_report.successes + registry._assertion_report.failures)
+        failures = registry._assertion_report.failures
+        logger.info("Completed (%s) tests. %s failures." % (total, failures))
+        sys.exit(1 if failures else 0)
+
+    gevent.spawn(runtests).join()

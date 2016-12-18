@@ -48,7 +48,6 @@ _logger = logging.getLogger(__name__)
     envvar="REDIS_URL",
     help="redis://[password]@[host]:[port]/[database number]"
 )
-
 @click.option(
     '--aws-access-key-id',
     envvar="AWS_ACCESS_KEY_ID",
