@@ -63,7 +63,7 @@ def wsgi(ctx, port, timeout, cdn, cron, cron_interval, dev):
     # we do not need multiple workers, but Odoo needs
     # the fooled.
     config['workers'] = 2
-    config['dev_mode'] = dev
+    config['dev_mode'] = ['all']
 
     from odooku.wsgi import WSGIServer
     from odooku.cron import CronRunner

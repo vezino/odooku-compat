@@ -15,9 +15,9 @@ def shell(ctx, input_file):
         ctx.obj['config']
     )
 
-    from openerp.modules.registry import RegistryManager
-    from openerp.api import Environment, Environments
-    from openerp import SUPERUSER_ID
+    from odoo.modules.registry import RegistryManager
+    from odoo.api import Environment, Environments
+    from odoo import SUPERUSER_ID
 
     registry = RegistryManager.get(config['db_name'])
 

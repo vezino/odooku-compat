@@ -13,8 +13,8 @@ def collect(ctx):
         ctx.obj['logger']
     )
 
-    from openerp.modules import get_modules, get_module_path
-    from openerp.tools.osutil import listdir
+    from odoo.modules import get_modules, get_module_path
+    from odoo.tools.osutil import listdir
     from odooku.s3 import pool as s3_pool
 
     for module in get_modules():

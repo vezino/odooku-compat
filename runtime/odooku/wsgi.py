@@ -1,9 +1,9 @@
 from gevent.wsgi import WSGIServer as BaseWSGIServer
 from werkzeug.debug import DebuggedApplication
 
-import openerp.http
-from openerp.service.wsgi_server import application
-from openerp.tools import config
+import odoo.http
+from odoo.service.wsgi_server import application
+from odoo.tools import config
 
 from odooku.http import Root
 
@@ -29,7 +29,7 @@ class WSGIServer(BaseWSGIServer):
         # Patch http
         root = Root()
         root.preload()
-        openerp.http.root = root
+        odoo.http.root = root
 
         wrapped = WSGIApplicationWrapper(application)
 

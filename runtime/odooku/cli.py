@@ -126,14 +126,14 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     )
 
     # Setup Odoo
-    import openerp
-    from openerp.tools import config
+    import odoo
+    from odoo.tools import config
 
     # Always account for multiple processes:
     # - we can run multiple dyno's consisting of:
     #    - web
     #    - worker
-    openerp.multi_process = True
+    odoo.multi_process = True
 
     # Patch odoo config
     database_url = urlparse.urlparse(database_url)

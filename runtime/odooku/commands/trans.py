@@ -19,9 +19,9 @@ def export(ctx, language, module):
         ctx.obj['config']
     )
 
-    from openerp.modules.registry import RegistryManager
-    from openerp.api import Environment
-    from openerp.tools import trans_export
+    from odoo.modules.registry import RegistryManager
+    from odoo.api import Environment
+    from odoo.tools import trans_export
 
     modules = module or ['all']
     with tempfile.TemporaryFile() as t:
@@ -55,9 +55,9 @@ def import_(ctx, language, overwrite):
         'overwrite': overwrite
     }
 
-    from openerp.modules.registry import RegistryManager
-    from openerp.api import Environment
-    from openerp.tools import trans_load
+    from odoo.modules.registry import RegistryManager
+    from odoo.api import Environment
+    from odoo.tools import trans_load
 
     with tempfile.NamedTemporaryFile(suffix='.po', delete=False) as t:
         registry = RegistryManager.get(config['db_name'])

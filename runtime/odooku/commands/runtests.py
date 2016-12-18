@@ -35,12 +35,12 @@ def runtests(ctx, module):
 
     # !! Database signalling needs to be turned off while
     #    running tests
-    import openerp
-    openerp.multi_process = False
+    import odoo
+    odoo.multi_process = False
 
     # Now import further
-    from openerp.tests.common import PORT
-    from openerp.modules.registry import RegistryManager
+    from odoo.tests.common import PORT
+    from odoo.modules.registry import RegistryManager
     from odooku.wsgi import WSGIServer
 
     server = WSGIServer(

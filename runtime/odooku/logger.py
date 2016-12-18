@@ -127,5 +127,5 @@ def setup(debug=False, statsd_host=None):
     logging.addLevelName(25, 'INFO')
 
     # Prevent odoo from overriding log config
-    import openerp.netsvc
-    openerp.netsvc._logger_init = True
+    import odoo.netsvc
+    odoo.netsvc._logger_init = True

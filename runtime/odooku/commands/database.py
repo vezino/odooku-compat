@@ -30,7 +30,7 @@ def preload(ctx, module, demo_data):
         ctx.obj['config']
     )
 
-    from openerp.modules.registry import RegistryManager
+    from odoo.modules.registry import RegistryManager
 
     if module:
         modules = {
@@ -53,7 +53,7 @@ def update(ctx, module):
         ctx.obj['config']
     )
 
-    from openerp.modules.registry import RegistryManager
+    from odoo.modules.registry import RegistryManager
 
     module = module or ['all']
     modules = {
@@ -72,7 +72,7 @@ def newdbuuid(ctx, new_dbuuid):
         ctx.obj['config']
     )
 
-    from openerp.modules.registry import RegistryManager
+    from odoo.modules.registry import RegistryManager
 
     registry = RegistryManager.get(config['db_name'])
     with Environment.manage():
@@ -94,13 +94,13 @@ def dump(ctx, db_name, s3_file):
     )
 
     from odooku.s3 import pool as s3_pool
-    from openerp.api import Environment
-    from openerp.service import db
+    from odoo.api import Environment
+    from odoo.service.db import dump_db
 
     db_name = db_name or config.get('db_name', '').split(',')[0]
     with tempfile.TemporaryFile() as t:
         with Environment.manage():
-            db.dump_db(db_name, t)
+            dump_db(db_name, t)
 
         t.seek(0)
         if s3_file:
@@ -147,8 +147,8 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
         config['update']['all'] = 1
 
     from odooku.s3 import pool as s3_pool
-    from openerp.api import Environment
-    from openerp.service import db
+    from odoo.api import Environment
+    from odoo.service.db import restore_db
 
     db_name = db_name or config.get('db_name', '').split(',')[0]
     with tempfile.NamedTemporaryFile(delete=False) as t:
@@ -164,7 +164,7 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
         t.close()
 
         with Environment.manage():
-            db.restore_db(
+            restore_db(
                 db_name,
                 t.name,
                 copy=True,

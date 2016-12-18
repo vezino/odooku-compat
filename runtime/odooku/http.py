@@ -1,9 +1,9 @@
 import contextlib
 
-import openerp.http
-import openerp.service.db
-from openerp.tools import config
-from openerp.tools.func import lazy_property
+import odoo.http
+from odoo.service.db import list_dbs
+from odoo.tools import config
+from odoo.tools.func import lazy_property
 
 import werkzeug.datastructures
 from werkzeug.contrib.sessions import FilesystemSessionStore
@@ -19,13 +19,13 @@ _logger = logging.getLogger(__name__)
 
 
 IGNORE_EXCEPTIONS = (
-    openerp.osv.orm.except_orm,
-    openerp.exceptions.AccessError,
-    openerp.exceptions.ValidationError,
-    openerp.exceptions.MissingError,
-    openerp.exceptions.AccessDenied,
-    openerp.exceptions.Warning,
-    openerp.exceptions.RedirectWarning,
+    odoo.osv.orm.except_orm,
+    odoo.exceptions.AccessError,
+    odoo.exceptions.ValidationError,
+    odoo.exceptions.MissingError,
+    odoo.exceptions.AccessDenied,
+    odoo.exceptions.Warning,
+    odoo.exceptions.RedirectWarning,
     werkzeug.exceptions.HTTPException
 )
 
@@ -38,15 +38,15 @@ class WebRequestMixin(object):
         return super(WebRequestMixin, self)._handle_exception(exception)
 
 
-class HttpRequest(WebRequestMixin, openerp.http.HttpRequest):
+class HttpRequest(WebRequestMixin, odoo.http.HttpRequest):
     pass
 
 
-class JsonRequest(WebRequestMixin, openerp.http.JsonRequest):
+class JsonRequest(WebRequestMixin, odoo.http.JsonRequest):
     pass
 
 
-class Root(openerp.http.Root):
+class Root(odoo.http.Root):
 
     @lazy_property
     def session_store(self):
@@ -60,7 +60,7 @@ class Root(openerp.http.Root):
 
     def setup_db(self, httprequest):
         db = httprequest.session.db
-        if db and db not in openerp.service.db.list_dbs(True):
+        if db and db not in list_dbs(True):
             _logger.warn("Logged into database '%s', but db list "
                          "rejects it; logging session out.", db)
             httprequest.session.logout()
@@ -98,7 +98,7 @@ class Root(openerp.http.Root):
             return HttpRequest(httprequest)
 
 
-class OpenERPSession(openerp.http.OpenERPSession):
+class OpenERPSession(odoo.http.OpenERPSession):
 
     def save_request_data(self):
         root = openerp.http.root
