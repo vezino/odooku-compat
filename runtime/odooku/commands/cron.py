@@ -1,6 +1,5 @@
 import click
 
-from odooku.cron import CronRunner
 from odooku.utils import prefix_envvar
 
 
@@ -27,6 +26,8 @@ def cron(ctx, interval, once):
     config = (
         ctx.obj['config']
     )
+
+    from odooku.cron import CronRunner
 
     cron_runner = CronRunner()
     if once:

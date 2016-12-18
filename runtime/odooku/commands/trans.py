@@ -3,10 +3,6 @@ import os
 import tempfile
 import click
 
-from openerp.modules.registry import RegistryManager
-from openerp.api import Environment
-from openerp.tools import trans_load, trans_export
-
 
 CHUNK_SIZE = 16 * 1024
 
@@ -22,6 +18,10 @@ def export(ctx, language, module):
     config = (
         ctx.obj['config']
     )
+
+    from openerp.modules.registry import RegistryManager
+    from openerp.api import Environment
+    from openerp.tools import trans_export
 
     modules = module or ['all']
     with tempfile.TemporaryFile() as t:
@@ -54,6 +54,10 @@ def import_(ctx, language, overwrite):
     context = {
         'overwrite': overwrite
     }
+
+    from openerp.modules.registry import RegistryManager
+    from openerp.api import Environment
+    from openerp.tools import trans_load
 
     with tempfile.NamedTemporaryFile(suffix='.po', delete=False) as t:
         registry = RegistryManager.get(config['db_name'])

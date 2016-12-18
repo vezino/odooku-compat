@@ -1,10 +1,5 @@
 import click
-import os
-
-import openerp.modules
-import openerp.tools
-from odooku.s3 import pool as s3_pool
-
+from os import path
 
 __all__ = [
     'cdn'
@@ -18,12 +13,16 @@ def collect(ctx):
         ctx.obj['logger']
     )
 
-    for module in openerp.modules.get_modules():
-        static_dir = os.path.join(openerp.modules.get_module_path(module), 'static')
-        if os.path.exists(static_dir):
-            for filename in openerp.tools.osutil.listdir(static_dir, True):
-                path = os.path.join(static_dir, filename)
-                url = os.path.join('modules', module, 'static', filename)
+    from openerp.modules import get_modules, get_module_path
+    from openerp.tools.osutil import listdir
+    from odooku.s3 import pool as s3_pool
+
+    for module in get_modules():
+        static_dir = path.join(get_module_path(module), 'static')
+        if path.exists(static_dir):
+            for filename in listdir(static_dir, True):
+                path = path.join(static_dir, filename)
+                url = path.join('modules', module, 'static', filename)
                 logger.info("Uploading %s", url)
                 s3_pool.client.upload_file(path, s3_pool.bucket, url, ExtraArgs={
                     'ACL': 'public-read'

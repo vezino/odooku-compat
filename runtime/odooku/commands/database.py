@@ -3,12 +3,7 @@ import tempfile
 import sys
 import os
 
-from odooku.s3 import pool as s3_pool
 from odooku.utils import prefix_envvar
-
-from openerp.api import Environment
-from openerp.service import db
-from openerp.modules.registry import RegistryManager
 
 
 __all__ = [
@@ -35,6 +30,8 @@ def preload(ctx, module, demo_data):
         ctx.obj['config']
     )
 
+    from openerp.modules.registry import RegistryManager
+
     if module:
         modules = {
             module_name: 1
@@ -56,6 +53,8 @@ def update(ctx, module):
         ctx.obj['config']
     )
 
+    from openerp.modules.registry import RegistryManager
+
     module = module or ['all']
     modules = {
         module_name: 1
@@ -72,6 +71,8 @@ def newdbuuid(ctx, new_dbuuid):
     config = (
         ctx.obj['config']
     )
+
+    from openerp.modules.registry import RegistryManager
 
     registry = RegistryManager.get(config['db_name'])
     with Environment.manage():
@@ -91,6 +92,10 @@ def dump(ctx, db_name, s3_file):
     config = (
         ctx.obj['config']
     )
+
+    from odooku.s3 import pool as s3_pool
+    from openerp.api import Environment
+    from openerp.service import db
 
     db_name = db_name or config.get('db_name', '').split(',')[0]
     with tempfile.TemporaryFile() as t:
@@ -140,6 +145,10 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
 
     if update:
         config['update']['all'] = 1
+
+    from odooku.s3 import pool as s3_pool
+    from openerp.api import Environment
+    from openerp.service import db
 
     db_name = db_name or config.get('db_name', '').split(',')[0]
     with tempfile.NamedTemporaryFile(delete=False) as t:

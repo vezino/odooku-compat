@@ -3,10 +3,9 @@ import click
 
 import gevent
 
-from odooku.wsgi import WSGIServer
-from odooku.cron import CronRunner
-from odooku.utils import prefix_envvar
 from werkzeug._reloader import run_with_reloader
+
+from odooku.utils import prefix_envvar
 
 try:
     from newrelic import agent as newrelic_agent
@@ -65,6 +64,9 @@ def wsgi(ctx, port, timeout, cdn, cron, cron_interval, dev):
     # the fooled.
     config['workers'] = 2
     config['dev_mode'] = dev
+
+    from odooku.wsgi import WSGIServer
+    from odooku.cron import CronRunner
 
     # Initialize newrelic_agent
     global newrelic_agent

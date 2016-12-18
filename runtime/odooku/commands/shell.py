@@ -1,10 +1,6 @@
 import click
 import bpython
 
-from openerp.modules.registry import RegistryManager
-from openerp.api import Environment, Environments
-from openerp import SUPERUSER_ID
-
 
 __all__ = [
     'shell'
@@ -18,6 +14,10 @@ def shell(ctx, input_file):
     config = (
         ctx.obj['config']
     )
+
+    from openerp.modules.registry import RegistryManager
+    from openerp.api import Environment, Environments
+    from openerp import SUPERUSER_ID
 
     registry = RegistryManager.get(config['db_name'])
 

@@ -3,9 +3,6 @@ import sys
 
 import gevent
 
-from odooku.wsgi import WSGIServer
-from openerp.modules.registry import RegistryManager
-
 
 __all__ = [
     'runtests'
@@ -30,11 +27,21 @@ def runtests(ctx, module):
         }
         config['init'] = dict(modules)
 
+    # !! Tests need demo data
     config['without_demo'] = '' # Enables demo data
     config['test_enable'] = True
     config['xmlrpc_port'] = 8000
 
+
+    # !! Database signalling needs to be turned off while
+    #    running tests
+    import openerp
+    openerp.multi_process = False
+
+    # Now import further
     from openerp.tests.common import PORT
+    from openerp.modules.registry import RegistryManager
+    from odooku.wsgi import WSGIServer
 
     server = WSGIServer(
         PORT,

@@ -15,7 +15,9 @@ _logger = logging.getLogger(__name__)
 
 class WSGIServer(BaseWSGIServer):
 
-    def __init__(self, port, interface='0.0.0.0', max_accept=None, newrelic_agent=None, reload=False):
+    def __init__(self, port, interface='0.0.0.0', max_accept=None,
+            newrelic_agent=None, reload=False):
+
         self.max_accept = max_accept or config['db_maxconn']
         super(WSGIServer, self).__init__((interface, port), self.load(
             newrelic_agent=newrelic_agent
@@ -24,7 +26,7 @@ class WSGIServer(BaseWSGIServer):
     def load(self, newrelic_agent=None):
         _logger.info("Loading Odoo WSGI application")
 
-        # Load addons
+        # Patch http
         root = Root()
         root.preload()
         openerp.http.root = root

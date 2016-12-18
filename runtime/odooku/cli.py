@@ -4,16 +4,7 @@ import urlparse
 from odooku.params import params
 from odooku.utils import prefix_envvar
 
-# Setup logger first, then import further modules
-import odooku.logger
-odooku.logger.setup()
-
-import openerp
-from openerp.tools import config
-from odooku import redis, s3
-
 import logging
-_logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -109,6 +100,10 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         s3_custom_domain, s3_addressing_style,
         addons, tmp_dir, admin_password, debug, statsd_host):
 
+    # Setup logger first, then import further modules
+    import odooku.logger
+    odooku.logger.setup(debug=debug, statsd_host=statsd_host)
+    from odooku import redis, s3
 
     # Setup S3
     s3.configure(
@@ -130,9 +125,14 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         maxconn=redis_maxconn
     )
 
+    # Setup Odoo
+    import openerp
+    from openerp.tools import config
 
-    # Even if 1 worker is running, we can still be running multiple
-    # heroku instances.
+    # Always account for multiple processes:
+    # - we can run multiple dyno's consisting of:
+    #    - web
+    #    - worker
     openerp.multi_process = True
 
     # Patch odoo config
@@ -154,11 +154,12 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     config['debug_mode'] = debug
     config['list_db'] = not bool(db_name)
 
+    logger = logging.getLogger(__name__)
     ctx.obj.update({
         'debug': debug,
         'config': config,
         'params': params,
-        'logger': _logger
+        'logger': logger
     })
 
 
