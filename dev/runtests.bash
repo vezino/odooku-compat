@@ -1,2 +1,2 @@
 npm install -g phantomjs-prebuilt
-odooku runtests --module website
+odooku runtests --module sale --module account

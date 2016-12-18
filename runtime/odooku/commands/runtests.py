@@ -1,4 +1,5 @@
 import click
+import sys
 
 import gevent
 
@@ -46,4 +47,4 @@ def runtests(ctx, module):
     total = (registry._assertion_report.successes + registry._assertion_report.failures)
     failures = registry._assertion_report.failures
     logger.info("Completed (%s) tests. %s failures." % (total, failures))
-    return 1 if failures else 0
+    sys.exit(1 if failures else 0)
