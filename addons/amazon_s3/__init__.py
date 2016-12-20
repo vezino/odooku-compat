@@ -7,8 +7,6 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-from openerp import SUPERUSER_ID
-
 def _force_s3_storage(cr, registry):
     from odooku.s3 import pool, S3Error
     if pool:
@@ -16,7 +14,7 @@ def _force_s3_storage(cr, registry):
         # For some reason we can't search installed attachments...
         cr.execute("SELECT id FROM ir_attachment")
         ids = [row['id'] for row in cr.dictfetchall()]
-        for attach in attachment.browse(cr, SUPERUSER_ID, ids, {}):
+        for attach in attachment.sudo().browse(ids, {}):
             exists = False
             try:
                 attach._s3_put(attach.store_fname, content_type=attach.mimetype)

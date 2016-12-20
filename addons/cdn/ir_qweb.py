@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import openerp
-from openerp.osv import orm
-from odooku.s3 import pool as s3_pool
+import odoo
+from odoo.osv import orm
 
+from odooku.s3 import pool as s3_pool
 from odooku.params import params
+
 CDN_ENABLED = getattr(params, 'CDN_ENABLED', False)
 
 

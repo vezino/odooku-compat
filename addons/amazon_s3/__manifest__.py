@@ -6,9 +6,7 @@
   'category': 'Hidden',
   'author': 'Raymond Reggers',
   'depends': ['base'],
-  'data': [
-    'ir_attachment.xml'
-  ],
+  'data': [],
   'auto_install': True,
   'post_init_hook': '_force_s3_storage',
 }

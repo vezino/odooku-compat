@@ -1,79 +1,105 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from openerp import api, SUPERUSER_ID
-from openerp.osv import fields, osv
-
 import os
 import logging
+
+from odoo import api, fields, models, tools, _
+
 from botocore.exceptions import ClientError
+
 from odooku.s3 import pool as s3_pool, S3Error, S3NoSuchKey
 
 
 _logger = logging.getLogger(__name__)
 
 
-class ir_attachment(osv.osv):
+class IrAttachment(models.Model):
 
     _inherit = 'ir.attachment'
 
-    def _data_get(self, cr, uid, ids, name, arg, context=None):
-        if context is None:
-            context = {}
-        result = {}
-        bin_size = context.get('bin_size')
-        for attach in self.browse(cr, uid, ids, context=context):
+    datas = fields.Binary(string='File Content', compute='_compute_datas', inverse='_inverse_datas')
+    s3_exists = fields.Boolean(string='Exists in S3 bucket', default=None)
+
+    @api.depends('store_fname', 'db_datas')
+    def _compute_datas(self):
+        bin_size = self._context.get('bin_size')
+        for attach in self:
             if attach.store_fname:
+                no_data = True
                 try:
-                    result[attach.id] = self._file_read(cr, uid, attach.store_fname, bin_size, attach.s3_exists)
+                    attach.datas = self._file_read(attach.store_fname, bin_size, attach.s3_exists)
+                    no_data = False
                 except S3NoSuchKey:
                     # SUPERUSER_ID as probably don't have write access, trigger during create
                     _logger.warning("Preventing further s3 (%s) lookups for '%s'", s3_pool.bucket, attach.store_fname)
-                    self.write(cr, SUPERUSER_ID, [attach.id], { 's3_exists': False }, context=context)
-                    result[attach.id] = ''
+                    self.sudo().write([attach.id], { 's3_exists': False })
                 except S3Error:
-                    result[attach.id] = ''
+                    pass
 
-                if result[attach.id] == '':
+                if no_data:
                     _logger.warning("Failed to read attachment %s/%s: %s", attach.id, attach.name, attach.datas_fname)
+
             else:
-                result[attach.id] = attach.db_datas
-        return result
+                attach.datas = attach.db_datas
 
-    def _data_set(self, cr, uid, id, name, value, arg, context=None):
-        res = super(ir_attachment, self)._data_set(cr, uid, id, name, value, arg, context=None)
-        location = self._storage(cr, uid, context)
-        if s3_pool and location != 'db':
-            attach = self.browse(cr, uid, id, context=context)
-            _logger.info(attach.store_fname)
-            s3_exists = True
-            try:
-                self._s3_put(cr, uid, attach.store_fname, content_type=attach.mimetype)
-            except S3Error:
-                s3_exists = False
-            self.write(cr, SUPERUSER_ID, [id], { 's3_exists': s3_exists }, context=context)
-        else:
-            _logger.warning("S3 is not enabled, dataloss for attachment [%s] is imminent", id)
-        return res
+    def _inverse_datas(self):
+        location = self._storage()
+        for attach in self:
+            # compute the fields that depend on datas
+            value = attach.datas
+            bin_data = value and value.decode('base64') or ''
+            vals = {
+                'file_size': len(bin_data),
+                'checksum': self._compute_checksum(bin_data),
+                'index_content': self._index(bin_data, attach.datas_fname, attach.mimetype),
+                'store_fname': False,
+                'db_datas': value,
+            }
+            if value and location != 'db':
+                # save it to the filestore
+                vals['store_fname'] = self._file_write(value, vals['checksum'])
+                vals['db_datas'] = False
 
-    def _file_read(self, cr, uid, fname, bin_size=False, s3_exists=None):
-        full_path = self._full_path(cr, uid, fname)
+                if s3_pool:
+                    _logger.info(attach.store_fname)
+                    s3_exists = True
+                    try:
+                        self._s3_put(attach.store_fname, content_type=attach.mimetype)
+                    except S3Error:
+                        s3_exists = False
+                    vals.update({ 's3_exists': s3_exists })
+                else:
+                    _logger.warning("S3 is not enabled, dataloss for attachment [%s] is imminent", id)
+
+            # take current location in filestore to possibly garbage-collect it
+            fname = attach.store_fname
+            # write as superuser, as user probably does not have write access
+            super(IrAttachment, attach.sudo()).write(vals)
+            if fname:
+                self._file_delete(fname)
+
+    @api.model
+    def _file_read(self, fname, bin_size=False, s3_exists=None):
+        full_path = self._full_path(fname)
         if not os.path.exists(full_path) and s3_pool:
             if s3_exists:
-                self._s3_get(cr, uid, fname)
+                self._s3_get(fname)
             elif s3_exists is False:
                 _logger.warning("S3 (%s) lookup prevented '%s'", s3_pool.bucket, fname)
         elif os.path.exists(full_path) and s3_pool and s3_exists is None:
             _logger.warning("S3 (%s) detected missing file '%s'", s3_pool.bucket, fname)
-        return super(ir_attachment, self)._file_read(cr, uid, fname, bin_size=bin_size)
+        return super(IrAttachment, self)._file_read(fname, bin_size=bin_size)
 
-    def _file_delete(self, cr, uid, fname):
+    @api.model
+    def _file_delete(self, fname):
         if s3_pool:
             # using SQL to include files hidden through unlink or due to record rules
+            cr = self._cr
             cr.execute("SELECT COUNT(*) FROM ir_attachment WHERE store_fname = %s", (fname,))
             count = cr.fetchone()[0]
             if not count:
-                key = self._s3_key(cr.dbname, fname)
+                key = self._s3_key(fname)
                 _logger.info("S3 (%s) delete '%s'", s3_pool.bucket, key)
                 _logger.increment("s3.delete", 1)
                 try:
@@ -81,13 +107,15 @@ class ir_attachment(osv.osv):
                 except ClientError as e:
                     if e.response['Error']['Code'] != "NoSuchKey":
                         _logger.warning("S3 (%s) delete '%s'", s3_pool.bucket, key, exc_info=True)
-        return super(ir_attachment, self)._file_delete(cr, uid, fname)
+        return super(IrAttachment, self)._file_delete(fname)
 
-    def _s3_key(self, dbname, fname):
+    @api.model
+    def _s3_key(self, fname):
         return 'filestore/%s/%s' % (dbname, fname)
 
-    def _s3_get(self, cr, uid, fname):
-        key = self._s3_key(cr.dbname, fname)
+    @api.model
+    def _s3_get(self, fname):
+        key = self._s3_key(fname)
         _logger.info("S3 (%s) get '%s'", s3_pool.bucket, key)
         _logger.increment("s3.get", 1)
 
@@ -102,13 +130,14 @@ class ir_attachment(osv.osv):
         bin_data = r['Body'].read()
         checksum = self._compute_checksum(bin_data)
         value = bin_data.encode('base64')
-        super(ir_attachment, self)._file_write(cr, uid, value, checksum)
+        super(IrAttachment, self)._file_write(value, checksum)
 
-    def _s3_put(self, cr, uid, fname, content_type='application/octet-stream'):
-        value = super(ir_attachment, self)._file_read(cr, uid, fname)
+    @api.model
+    def _s3_put(self, name, content_type='application/octet-stream'):
+        value = super(IrAttachment, self)._file_read(fname)
         bin_data = value.decode('base64')
 
-        key = self._s3_key(cr.dbname, fname)
+        key = self._s3_key(fname)
         _logger.info("S3 (%s) put '%s'", s3_pool.bucket, key)
         _logger.increment("s3.put", 1)
 
@@ -123,31 +152,3 @@ class ir_attachment(osv.osv):
         except ClientError:
             _logger.warning("S3 (%s) put '%s'", s3_pool.bucket, key, exc_info=True)
             raise S3Error
-
-    _columns = {
-        's3_exists': fields.boolean(string='Exists in s3 bucket'),
-        'datas': fields.function(_data_get, fnct_inv=_data_set, string='File Content', type="binary", nodrop=True),
-    }
-
-    _defaults = {
-        's3_exists': None,
-    }
-
-    @api.multi
-    def action_s3_sync(self):
-        for attachment in self:
-            exists = False
-            try:
-                attachment._s3_get(attachment.store_fname)
-            except S3NoSuchKey:
-                exists = False
-            except S3Error:
-                raise
-
-            try:
-                attachment._s3_put(attachment.store_fname)
-                exists = True
-            except S3Error:
-                raise
-
-            attachment.write({ 's3_exists': exists })
