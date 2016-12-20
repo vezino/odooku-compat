@@ -2,6 +2,7 @@ import click
 import tempfile
 import sys
 import os
+from contextlib import closing
 
 from odooku.utils import prefix_envvar
 
