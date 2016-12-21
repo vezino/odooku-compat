@@ -32,7 +32,7 @@ class IrAttachment(models.Model):
                 except S3NoSuchKey:
                     # SUPERUSER_ID as probably don't have write access, trigger during create
                     _logger.warning("Preventing further s3 (%s) lookups for '%s'", s3_pool.bucket, attach.store_fname)
-                    self.sudo().write([attach.id], { 's3_exists': False })
+                    super(IrAttachment, attach.sudo()).write({ 's3_exists': False })
                 except S3Error:
                     pass
 
