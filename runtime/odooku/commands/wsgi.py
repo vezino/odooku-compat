@@ -34,6 +34,21 @@ __all__ = [
     help="Enables Content Delivery through S3 endpoint or S3 custom domain."
 )
 @click.option(
+    '--proxy-mode',
+    is_flag=True,
+    envvar=prefix_envvar('PROXY_MODE')
+)
+@click.option(
+    '--admin-password',
+    envvar=prefix_envvar('ADMIN_PASSWORD'),
+    help="Odoo admin password."
+)
+@click.option(
+    '--db-filter',
+    default='.*',
+    envvar=prefix_envvar('DB_FILTER')
+)
+@click.option(
     '--cron',
     is_flag=True,
     envvar=prefix_envvar('CRON')
@@ -51,7 +66,9 @@ __all__ = [
     envvar=prefix_envvar('DEV')
 )
 @click.pass_context
-def wsgi(ctx, port, timeout, cdn, cron, cron_interval, dev):
+def wsgi(ctx, port, timeout, cdn, proxy_mode, admin_password,
+        db_filter, cron, cron_interval, dev):
+
     debug, config, params, logger = (
         ctx.obj['debug'],
         ctx.obj['config'],
@@ -61,9 +78,12 @@ def wsgi(ctx, port, timeout, cdn, cron, cron_interval, dev):
 
     # Patch odoo config, since we run with gevent
     # we do not need multiple workers, but Odoo needs
-    # the fooled.
+    # to be fooled.
     config['workers'] = 2
     config['dev_mode'] = ['all']
+    config['admin_passwd'] = admin_password
+    config['proxy_mode'] = proxy_mode
+    config['dbfilter'] = db_filter
 
     from odooku.wsgi import WSGIServer
     from odooku.cron import CronRunner

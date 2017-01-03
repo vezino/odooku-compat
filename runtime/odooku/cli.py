@@ -81,11 +81,6 @@ import logging
     envvar=prefix_envvar('TMP_DIR')
 )
 @click.option(
-    '--admin-password',
-    envvar=prefix_envvar('ADMIN_PASSWORD'),
-    help="Odoo admin password."
-)
-@click.option(
     '--debug',
     is_flag=True,
     envvar=prefix_envvar('DEBUG')
@@ -96,9 +91,9 @@ import logging
 )
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
-        aws_access_key_id, aws_secret_access_key, s3_bucket, s3_endpoint_url,
-        s3_custom_domain, s3_addressing_style,
-        addons, tmp_dir, admin_password, debug, statsd_host):
+        aws_access_key_id, aws_secret_access_key, s3_bucket,
+        s3_endpoint_url, s3_custom_domain, s3_addressing_style,
+        addons, tmp_dir, debug, statsd_host):
 
     # Setup logger first, then import further modules
     import odooku.logger
@@ -150,7 +145,6 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
 
     config['demo'] = {}
     config['without_demo'] = 'all'
-    config['admin_passwd'] = admin_password
     config['debug_mode'] = debug
     config['list_db'] = not bool(db_name)
 
