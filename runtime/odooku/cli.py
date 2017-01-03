@@ -138,7 +138,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     # Patch odoo config
     database_url = urlparse.urlparse(database_url)
     config.parse_config()
-    db_name = database_url.path[1:] if database_url.path else ''
+    db_name = database_url.path[1:] if database_url.path else False
     config['data_dir'] = tmp_dir
     config['addons_path'] = addons
     config['db_name'] = db_name

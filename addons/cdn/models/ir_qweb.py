@@ -3,7 +3,9 @@
 import ast
 
 import odoo
-from odoo import models, SUPERUSER_ID
+from odoo import models, tools, SUPERUSER_ID
+from odoo.http import request
+from odoo.addons.base.ir.ir_qweb.assetsbundle import AssetsBundle
 
 from odooku.s3 import pool as s3_pool
 from odooku.params import params
@@ -21,38 +23,39 @@ class QWeb(models.AbstractModel):
         'img':     'src',
     }
 
-    def _website_build_attribute(self, tagName, name, value, options, values):
-        if CDN_ENABLED and s3_pool:
-            if name == self.CDN_TRIGGERS.get(element.tag):
-                parts = value.split('/')
-                cr, context = [getattr(options, attr) for attr in ('cr', 'context')]
-                if value.startswith('/web/content/'):
-                    ira = self.pool['ir.attachment']
-                    domain = [('url', '=like', value)]
-                    attachment_ids = ira.search(cr, SUPERUSER_ID, domain, order='name asc', context=context)
-                    attachments = ira.browse(cr, SUPERUSER_ID, attachment_ids, context=context)
-                    if attachments:
-                        # /filestore/<dbname/<attachment>
-                        value = s3_pool.get_url('filestore', cr.dbname, attachments[0].store_fname)
-                elif len(parts) > 2 and parts[1] == 'static':
-                    # /modules/<module>/static
-                    value = s3_pool.get_url('modules', value[1:])
+    def _cdn_url(self, url):
+        parts = url.split('/')
+        cr, env = request.cr, request.env
+        if url.startswith('/web/content/'):
+            IrAttachment = env['ir.attachment']
+            attachments = IrAttachment.search([('url', '=like', url)])
+            if attachments:
+                # /filestore/<dbname/<attachment>
+                url = s3_pool.get_url('filestore', cr.dbname, attachments[0].store_fname)
+        elif len(parts) > 3 and parts[2] == 'static':
+            # /modules/<module>/static
+            url = s3_pool.get_url('modules', url[1:])
 
-        return value
+        return url
 
-    def _wrap_build_attributes(self, el, items, options):
-        """ Map items corresponding to URL and CDN attributes to an ast expression. """
-        if options.get('rendering_bundle'):
+    def _cdn_build_attribute(self, tagName, name, value, options, values):
+        return self._cdn_url(value)
+
+    def _wrap_cdn_build_attributes(self, el, items, options):
+        if (options.get('rendering_bundle')
+                or not CDN_ENABLED
+                or not s3_pool
+                or el.tag not in self.CDN_TRIGGERS):
+            # Shortcircuit
             return items
 
         cdn_att = self.CDN_TRIGGERS.get(el.tag)
-
         def process(item):
-            if isinstance(item, tuple) and (item[0] in (cdn_att,)):
+            if isinstance(item, tuple) and item[0] == cdn_att:
                 return (item[0], ast.Call(
                     func=ast.Attribute(
                         value=ast.Name(id='self', ctx=ast.Load()),
-                        attr='_website_build_attribute',
+                        attr='_cdn_build_attribute',
                         ctx=ast.Load()
                     ),
                     args=[
@@ -71,23 +74,41 @@ class QWeb(models.AbstractModel):
 
     def _compile_static_attributes(self, el, options):
         items = super(QWeb, self)._compile_static_attributes(el, options)
-        return self._wrap_build_attributes(el, items, options)
+        return self._wrap_cdn_build_attributes(el, items, options)
 
     def _compile_dynamic_attributes(self, el, options):
         items = super(QWeb, self)._compile_dynamic_attributes(el, options)
-        return self._wrap_build_attributes(el, items, options)
-
-    # method called by computing code
+        return self._wrap_cdn_build_attributes(el, items, options)
 
     def _get_dynamic_att(self, tagName, atts, options, values):
         atts = super(QWeb, self)._get_dynamic_att(tagName, atts, options, values)
-        if options.get('rendering_bundle'):
+        if (options.get('rendering_bundle')
+                or not CDN_ENABLED
+                or not s3_pool
+                or tagName not in self.CDN_TRIGGERS):
+            # Shortcircuit
             return atts
+
         for name, value in atts.iteritems():
-            atts[name] = self._website_build_attribute(tagName, name, value, options, values)
+            atts[name] = self._cdn_build_attribute(tagName, name, value, options, values)
         return atts
 
     def _is_static_node(self, el):
-        cdn_att = self.CDN_TRIGGERS.get(el.tag)
+        cdn_att = self.CDN_TRIGGERS.get(el.tag, False)
         return super(QWeb, self)._is_static_node(el) and \
                 (not cdn_att or not el.get(cdn_att))
+
+    @tools.conditional(
+        # in non-xml-debug mode we want assets to be cached forever, and the admin can force a cache clear
+        # by restarting the server after updating the source code (or using the "Clear server cache" in debug tools)
+        'xml' not in tools.config['dev_mode'],
+        tools.ormcache('xmlid', 'options.get("lang", "en_US")', 'css', 'js', 'debug', 'async'),
+    )
+    def _get_asset(self, xmlid, options, css=True, js=True, debug=False, async=False, values=None):
+        files, remains = self._get_asset_content(xmlid, options)
+        asset = AssetsBundle(xmlid, files, remains, env=self.env)
+        url_for = (values or {}).get('url_for', lambda url: url)
+        cdn_url_for = url_for
+        if CDN_ENABLED and s3_pool:
+            cdn_url_for = lambda url: self._cdn_url(url_for(url))
+        return asset.to_html(css=css, js=js, debug=debug, async=async, url_for=cdn_url_for)

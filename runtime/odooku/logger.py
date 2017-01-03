@@ -2,6 +2,7 @@ import sys
 import logging
 import socket
 import traceback
+import threading
 
 import logging
 from logging.config import dictConfig
@@ -12,6 +13,13 @@ MTYPE_VAR = "mtype"
 GAUGE_TYPE = "gauge"
 COUNTER_TYPE = "counter"
 HISTOGRAM_TYPE = "histogram"
+
+
+class DBFormatter(logging.Formatter):
+    def format(self, record):
+        db_name = getattr(threading.currentThread(), 'dbname', None)
+        record.db = ' @%s ' % db_name if db_name is not None else ' '
+        return super(DBFormatter, self).format(record)
 
 
 class OdookuLogger(logging.Logger):
@@ -108,16 +116,16 @@ def setup(debug=False, statsd_host=None):
         handlers={
             'console': {
                 'class': 'logging.StreamHandler',
-                'formatter': 'simple',
+                'formatter': 'standard',
                 # Log to stderr so that click commands can make
                 # use of stdout
                 'stream': sys.stderr
             },
         },
         formatters={
-            'simple': {
-                'format': '[%(levelname)s] %(message)s',
-                'class': 'logging.Formatter'
+            'standard': {
+                'format': '[%(levelname)s]%(db)s%(message)s',
+                '()': 'odooku.logger.DBFormatter'
             },
         }
     ))

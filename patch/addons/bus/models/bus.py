@@ -24,8 +24,9 @@ from gevent.event import Event
 
 # PATCH !!
 def _get_imbus_db():
-    dbs = odoo.tools.config.get('db_name', '').split(',')
-    return dbs[0] if dbs else "postgres"
+    if odoo.tools.config['db_name']:
+        return odoo.tools.config['db_name'].split(',')
+    return 'postgres'
 
 
 #----------------------------------------------------------

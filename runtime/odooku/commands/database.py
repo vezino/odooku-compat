@@ -15,7 +15,31 @@ __all__ = [
 CHUNK_SIZE = 16 * 1024
 
 
+def _db_name(ctx, param, value):
+    config = (
+        ctx.obj['config']
+    )
+
+    dbs = config['db_name'].split(',') if config['db_name'] else None
+    if value:
+        if dbs is not None and value not in dbs:
+            raise click.BadParameter(
+                "database '%s' is not found in explicit configuration."
+            )
+        return value
+    elif dbs is not None and len(dbs) == 1:
+        # Running in single db mode, safe to assume the db.
+        return dbs[0]
+
+    raise click.BadParameter(
+        "no db name given."
+    )
+
 @click.command()
+@click.option(
+    '--db-name',
+    callback=_db_name
+)
 @click.option(
     '--module',
     multiple=True
@@ -26,7 +50,7 @@ CHUNK_SIZE = 16 * 1024
     envvar=prefix_envvar('DEMO_DATA')
 )
 @click.pass_context
-def preload(ctx, module, demo_data):
+def preload(ctx, db_name, module, demo_data):
     config = (
         ctx.obj['config']
     )
@@ -40,16 +64,20 @@ def preload(ctx, module, demo_data):
         }
         config['init'] = dict(modules)
 
-    registry = RegistryManager.new(config['db_name'], force_demo=demo_data, update_module=True)
+    registry = RegistryManager.new(db_name, force_demo=demo_data, update_module=True)
 
 
 @click.command()
+@click.option(
+    '--db-name',
+    callback=_db_name
+)
 @click.option(
     '--module',
     multiple=True
 )
 @click.pass_context
-def update(ctx, module):
+def update(ctx, db_name, module):
     config = (
         ctx.obj['config']
     )
@@ -63,19 +91,23 @@ def update(ctx, module):
     }
 
     config['update'] = dict(modules)
-    registry = RegistryManager.new(config['db_name'], update_module=True)
+    registry = RegistryManager.new(db_name, update_module=True)
 
 
 @click.command()
+@click.option(
+    '--db-name',
+    callback=_db_name
+)
 @click.pass_context
-def newdbuuid(ctx, new_dbuuid):
+def newdbuuid(ctx, db_name):
     config = (
         ctx.obj['config']
     )
 
     from odoo.modules.registry import RegistryManager
 
-    registry = RegistryManager.get(config['db_name'])
+    registry = RegistryManager.get(db_name)
     with Environment.manage():
         with registry.cursor() as cr:
             registry['ir.config_parameter'].init(cr, force=True)
@@ -83,7 +115,8 @@ def newdbuuid(ctx, new_dbuuid):
 
 @click.command()
 @click.option(
-    '--db-name'
+    '--db-name',
+    callback=_db_name
 )
 @click.option(
     '--s3-file'
@@ -98,7 +131,6 @@ def dump(ctx, db_name, s3_file):
     from odoo.api import Environment
     from odoo.service.db import dump_db
 
-    db_name = db_name or config.get('db_name', '').split(',')[0]
     with tempfile.TemporaryFile() as t:
         with Environment.manage():
             dump_db(db_name, t)
@@ -117,7 +149,8 @@ def dump(ctx, db_name, s3_file):
 
 @click.command()
 @click.option(
-    '--db-name'
+    '--db-name',
+    callback=_db_name
 )
 @click.option(
     '--s3-file'
@@ -151,7 +184,6 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
     from odoo.api import Environment
     from odoo.service.db import restore_db
 
-    db_name = db_name or config.get('db_name', '').split(',')[0]
     with tempfile.NamedTemporaryFile(delete=False) as t:
         if s3_file:
             s3_pool.client.download_fileobj(s3_pool.bucket, s3_file, t)

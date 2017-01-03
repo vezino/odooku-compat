@@ -35,7 +35,7 @@ def check_super(passwd):
     if odoo.tools.config['admin_passwd'] is not None:
         if passwd and passwd == odoo.tools.config['admin_passwd']:
             return True
-    raise openerp.exceptions.AccessDenied()
+    raise odoo.exceptions.AccessDenied()
 
 # This should be moved to odoo.modules.db, along side initialize().
 def _initialize_db(id, db_name, demo, lang, user_password, login='admin', country_code=None):
@@ -351,9 +351,8 @@ def list_dbs(force=False):
         raise odoo.exceptions.AccessDenied()
 
     # PATCH !!
-    dbs = odoo.tools.config.get('db_name', '').split(',')
-    if dbs:
-        return dbs
+    if odoo.tools.config['db_name']:
+        return odoo.tools.config['db_name'].split(',')
 
     chosen_template = odoo.tools.config['db_template']
     templates_list = tuple(set(['postgres', chosen_template]))
