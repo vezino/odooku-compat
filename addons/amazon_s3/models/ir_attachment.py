@@ -65,7 +65,7 @@ class IrAttachment(models.Model):
                         s3_exists = False
                     vals.update({ 's3_exists': s3_exists })
                 else:
-                    _logger.warning("S3 is not enabled, dataloss for attachment [%s] is imminent", id)
+                    _logger.warning("S3 is not enabled, dataloss for attachment [%s] is imminent", attach.id)
 
             # take current location in filestore to possibly garbage-collect it
             fname = attach.store_fname
