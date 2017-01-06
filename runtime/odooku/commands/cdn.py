@@ -6,6 +6,9 @@ __all__ = [
 ]
 
 
+_reserved = ['filestore']
+
+
 @click.command()
 @click.pass_context
 def collect(ctx):
@@ -18,11 +21,14 @@ def collect(ctx):
     from odooku.s3 import pool as s3_pool
 
     for module in get_modules():
+        if module in _reserved:
+            logger.warning("Module name %s clashes with a reserved key", module)
+            continue
         static_dir = os.path.join(get_module_path(module), 'static')
         if os.path.exists(static_dir):
             for filename in listdir(static_dir, True):
                 path = os.path.join(static_dir, filename)
-                url = os.path.join('modules', module, 'static', filename)
+                url = os.path.join(module, 'static', filename)
                 logger.info("Uploading %s", url)
                 s3_pool.client.upload_file(path, s3_pool.bucket, url, ExtraArgs={
                     'ACL': 'public-read'

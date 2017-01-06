@@ -33,8 +33,8 @@ class QWeb(models.AbstractModel):
                 # /filestore/<dbname/<attachment>
                 url = s3_pool.get_url('filestore', cr.dbname, attachments[0].store_fname)
         elif len(parts) > 3 and parts[2] == 'static':
-            # /modules/<module>/static
-            url = s3_pool.get_url('modules', url[1:])
+            # /<module>/static
+            url = s3_pool.get_url(url[1:])
 
         return url
 
