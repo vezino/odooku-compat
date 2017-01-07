@@ -155,6 +155,7 @@ class AssetsBundle(object):
         """
         check = str([sorted(f.items()) for f in self.files] + self.remains + [self.last_modified])
         if self.name == 'web.assets_backend':
+            print hashlib.sha1(check).hexdigest()
             print check
         return hashlib.sha1(check).hexdigest()
 
