@@ -5,7 +5,7 @@ from odoo import api, fields, models, tools, _
 
 from botocore.exceptions import ClientError
 
-from odooku.s3 import pool as s3_pool, S3Error, S3NoSuchKey
+from odooku.s3 import pool as s3_pool, S3Error, S3NoSuchKey, S3_CACHE_TIME
 
 
 _logger = logging.getLogger(__name__)
@@ -142,7 +142,8 @@ class IrAttachment(models.Model):
                 Key=key,
                 Body=bin_data,
                 ContentType=content_type,
-                ACL='public-read'
+                ACL='public-read',
+                CacheControl=('max-age=%d, public' % (S3_CACHE_TIME))
             )
         except ClientError:
             _logger.warning("S3 (%s) put '%s'", s3_pool.bucket, key, exc_info=True)

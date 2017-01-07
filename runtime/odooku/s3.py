@@ -12,6 +12,9 @@ from werkzeug.local import Local
 _logger = logging.getLogger(__name__)
 
 
+S3_CACHE_TIME = 3600*24*30
+
+
 class S3Error(Exception):
     pass
 

@@ -18,7 +18,7 @@ def collect(ctx):
 
     from odoo.modules import get_modules, get_module_path
     from odoo.tools.osutil import listdir
-    from odooku.s3 import pool as s3_pool
+    from odooku.s3 import pool as s3_pool, S3_CACHE_TIME
 
     for module in get_modules():
         if module in _reserved:
@@ -31,7 +31,8 @@ def collect(ctx):
                 url = os.path.join(module, 'static', filename)
                 logger.info("Uploading %s", url)
                 s3_pool.client.upload_file(path, s3_pool.bucket, url, ExtraArgs={
-                    'ACL': 'public-read'
+                    'ACL': 'public-read',
+                    'CacheControl': ('max-age=%d, public' % (S3_CACHE_TIME))
                 })
 
 
