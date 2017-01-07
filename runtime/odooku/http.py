@@ -8,7 +8,6 @@ from odoo.tools.func import lazy_property
 import werkzeug.datastructures
 from werkzeug.contrib.sessions import FilesystemSessionStore
 
-
 from odooku.redis import pool as redis_pool
 from odooku.session import RedisSessionStore
 

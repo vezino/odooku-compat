@@ -2,7 +2,7 @@ import sys
 import logging
 import socket
 import traceback
-import threading
+import greenlet
 
 import logging
 from logging.config import dictConfig
@@ -17,7 +17,7 @@ HISTOGRAM_TYPE = "histogram"
 
 class DBFormatter(logging.Formatter):
     def format(self, record):
-        db_name = getattr(threading.currentThread(), 'dbname', None)
+        db_name = getattr(greenlet.getcurrent(), 'dbname', None)
         record.db = ' @%s ' % db_name if db_name is not None else ' '
         return super(DBFormatter, self).format(record)
 
