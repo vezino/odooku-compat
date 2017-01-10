@@ -1,12 +1,13 @@
 import click
 import os
 
+
 __all__ = [
     'cdn'
 ]
 
 
-_reserved = ['filestore']
+RESERVED = ['filestore']
 
 
 @click.command()
@@ -21,7 +22,7 @@ def collect(ctx):
     from odooku.s3 import pool as s3_pool, S3_CACHE_TIME
 
     for module in get_modules():
-        if module in _reserved:
+        if module in RESERVED:
             logger.warning("Module name %s clashes with a reserved key", module)
             continue
         static_dir = os.path.join(get_module_path(module), 'static')

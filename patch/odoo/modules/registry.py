@@ -9,15 +9,14 @@ from contextlib import closing
 from operator import attrgetter
 import logging
 import os
+import threading
+from gevent.lock import RLock
 
 import odoo
 from .. import SUPERUSER_ID
 from odoo.tools import (assertion_report, lazy_classproperty, config,
                         lazy_property, topological_sort, OrderedSet)
 from odoo.tools.lru import LRU
-
-from gevent import getcurrent
-from gevent.lock import RLock, DummySemaphore
 
 _logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class Registry(Mapping):
 
         # set db tracker - cleaned up at the WSGI dispatching phase in
         # odoo.service.wsgi_server.application
-        getcurrent().dbname = db_name
+        threading.current_thread().dbname = db_name
         return registry
 
     @classmethod
@@ -442,7 +441,7 @@ class Registry(Mapping):
         self.test_cr = self._db.test_cursor()
         assert self._saved_lock is None
         self._saved_lock = self._lock
-        self._lock = DummySemaphore()
+        self._lock = DummyRLock()
 
     def leave_test_mode(self):
         """ Leave the test mode. """
@@ -467,6 +466,18 @@ class Registry(Mapping):
             cr.acquire()
             return cr
         return self._db.cursor()
+
+
+class DummyRLock(object):
+    """ Dummy reentrant lock, to be used while running rpc and js tests """
+    def acquire(self):
+        pass
+    def release(self):
+        pass
+    def __enter__(self):
+        self.acquire()
+    def __exit__(self, type, value, traceback):
+        self.release()
 
 
 class RegistryManager(object):

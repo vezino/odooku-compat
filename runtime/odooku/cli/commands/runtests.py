@@ -8,6 +8,7 @@ __all__ = [
     'runtests'
 ]
 
+
 @click.command()
 @click.option(
     '--module',

@@ -1,6 +1,8 @@
 import click
 import bpython
 
+from odooku.cli.helpers import resolve_db_name
+
 
 __all__ = [
     'shell'
@@ -9,17 +11,17 @@ __all__ = [
 
 @click.command()
 @click.argument('input_file', type=click.Path(exists=True), required=False)
+@click.option(
+    '--db-name',
+    callback=resolve_db_name
+)
 @click.pass_context
-def shell(ctx, input_file):
-    config = (
-        ctx.obj['config']
-    )
-
+def shell(ctx, input_file, db_name):
     from odoo.modules.registry import RegistryManager
     from odoo.api import Environment, Environments
     from odoo import SUPERUSER_ID
 
-    registry = RegistryManager.get(config['db_name'])
+    registry = RegistryManager.get(db_name)
 
     # Bpython doesnt play nice with werkzeug's local object
     class FakeLocal(object):

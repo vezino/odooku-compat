@@ -13,7 +13,7 @@ from odooku.params import params
 CDN_ENABLED = getattr(params, 'CDN_ENABLED', False)
 
 
-class QWeb(models.AbstractModel):
+class IrQWeb(models.AbstractModel):
 
     _inherit = 'ir.qweb'
 
@@ -73,15 +73,15 @@ class QWeb(models.AbstractModel):
         return map(process, items)
 
     def _compile_static_attributes(self, el, options):
-        items = super(QWeb, self)._compile_static_attributes(el, options)
+        items = super(IrQWeb, self)._compile_static_attributes(el, options)
         return self._wrap_cdn_build_attributes(el, items, options)
 
     def _compile_dynamic_attributes(self, el, options):
-        items = super(QWeb, self)._compile_dynamic_attributes(el, options)
+        items = super(IrQWeb, self)._compile_dynamic_attributes(el, options)
         return self._wrap_cdn_build_attributes(el, items, options)
 
     def _get_dynamic_att(self, tagName, atts, options, values):
-        atts = super(QWeb, self)._get_dynamic_att(tagName, atts, options, values)
+        atts = super(IrQWeb, self)._get_dynamic_att(tagName, atts, options, values)
         if (options.get('rendering_bundle')
                 or not CDN_ENABLED
                 or not s3_pool
@@ -95,7 +95,7 @@ class QWeb(models.AbstractModel):
 
     def _is_static_node(self, el):
         cdn_att = self.CDN_TRIGGERS.get(el.tag, False)
-        return super(QWeb, self)._is_static_node(el) and \
+        return super(IrQWeb, self)._is_static_node(el) and \
                 (not cdn_att or not el.get(cdn_att))
 
     @tools.conditional(

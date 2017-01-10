@@ -3,6 +3,13 @@ import os
 import tempfile
 import click
 
+from odooku.cli.helpers import resolve_db_name
+
+
+__all__ = [
+    'trans'
+]
+
 
 CHUNK_SIZE = 16 * 1024
 
@@ -10,22 +17,22 @@ CHUNK_SIZE = 16 * 1024
 @click.command()
 @click.argument('language', nargs=1)
 @click.option(
+    '--db-name',
+    callback=resolve_db_name
+)
+@click.option(
     '--module',
     multiple=True
 )
 @click.pass_context
-def export(ctx, language, module):
-    config = (
-        ctx.obj['config']
-    )
+def export(ctx, language, db_name, module):
+    modules = module or ['all']
 
     from odoo.modules.registry import RegistryManager
     from odoo.api import Environment
     from odoo.tools import trans_export
-
-    modules = module or ['all']
     with tempfile.TemporaryFile() as t:
-        registry = RegistryManager.get(config['db_name'])
+        registry = RegistryManager.get(db_name)
         with Environment.manage():
             with registry.cursor() as cr:
                 trans_export(language, modules, t, 'po', cr)
@@ -42,15 +49,15 @@ def export(ctx, language, module):
 @click.command('import')
 @click.argument('language', nargs=1)
 @click.option(
+    '--db-name',
+    callback=resolve_db_name
+)
+@click.option(
     '--overwrite',
     is_flag=True
 )
 @click.pass_context
-def import_(ctx, language, overwrite):
-    config = (
-        ctx.obj['config']
-    )
-
+def import_(ctx, language, db_name, overwrite):
     context = {
         'overwrite': overwrite
     }
@@ -60,7 +67,7 @@ def import_(ctx, language, overwrite):
     from odoo.tools import trans_load
 
     with tempfile.NamedTemporaryFile(suffix='.po', delete=False) as t:
-        registry = RegistryManager.get(config['db_name'])
+        registry = RegistryManager.get(db_name)
 
         # Read from stdin
         while True:

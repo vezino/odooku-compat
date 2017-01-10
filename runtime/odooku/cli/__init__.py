@@ -2,7 +2,7 @@ import click
 import urlparse
 
 from odooku.params import params
-from odooku.utils import prefix_envvar
+from odooku.cli.helpers import prefix_envvar
 
 import logging
 
@@ -157,9 +157,9 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
     })
 
 
-import odooku.commands
-for name in dir(odooku.commands):
-    member = getattr(odooku.commands, name)
+from . import commands
+for name in dir(commands):
+    member = getattr(commands, name)
     if isinstance(member, click.BaseCommand):
         main.add_command(member)
 

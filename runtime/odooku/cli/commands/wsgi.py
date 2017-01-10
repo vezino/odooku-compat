@@ -5,7 +5,7 @@ import gevent
 
 from werkzeug._reloader import run_with_reloader
 
-from odooku.utils import prefix_envvar
+from odooku.cli.helpers import prefix_envvar
 
 try:
     from newrelic import agent as newrelic_agent
@@ -49,6 +49,11 @@ __all__ = [
     envvar=prefix_envvar('DB_FILTER')
 )
 @click.option(
+    '--ws',
+    is_flag=True,
+    envvar=prefix_envvar('WS')
+)
+@click.option(
     '--cron',
     is_flag=True,
     envvar=prefix_envvar('CRON')
@@ -67,7 +72,7 @@ __all__ = [
 )
 @click.pass_context
 def wsgi(ctx, port, timeout, cdn, proxy_mode, admin_password,
-        db_filter, cron, cron_interval, dev):
+        db_filter, ws, cron, cron_interval, dev):
 
     debug, config, params, logger = (
         ctx.obj['debug'],
@@ -85,7 +90,10 @@ def wsgi(ctx, port, timeout, cdn, proxy_mode, admin_password,
     config['proxy_mode'] = proxy_mode
     config['dbfilter'] = db_filter
 
-    from odooku.wsgi import WSGIServer
+    if ws:
+        from odooku.websocket import WebSocketServer as Server
+    else:
+        from odooku.wsgi import WSGIServer as Server
     from odooku.cron import CronRunner
 
     # Initialize newrelic_agent
@@ -102,6 +110,7 @@ def wsgi(ctx, port, timeout, cdn, proxy_mode, admin_password,
     # Keep track of custom config params
     params.TIMEOUT = timeout
     params.CDN_ENABLED = cdn
+    params.WS_ENABLED = ws
 
     def serve():
         max_accept = config['db_maxconn']
@@ -110,7 +119,7 @@ def wsgi(ctx, port, timeout, cdn, proxy_mode, admin_password,
             max_accept -= 1
             gevent.spawn(cron_runner.run_forever, interval=cron_interval)
 
-        server = WSGIServer(
+        server = Server(
             port,
             max_accept=max_accept,
             newrelic_agent=newrelic_agent

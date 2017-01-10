@@ -2,7 +2,7 @@ from gevent.wsgi import WSGIServer as BaseWSGIServer
 from werkzeug.debug import DebuggedApplication
 
 import odoo.http
-from odoo.service.wsgi_server import application
+from odoo.service.wsgi_server import application as odoo_application
 from odoo.tools import config
 
 from odooku.http import Root
@@ -19,13 +19,13 @@ _logger = logging.getLogger(__name__)
 class WSGIServer(BaseWSGIServer):
 
     def __init__(self, port, interface='0.0.0.0', max_accept=None,
-            newrelic_agent=None, block_timeout=None):
+            newrelic_agent=None, block_timeout=None, **kwargs):
 
         self.max_accept = max_accept or config['db_maxconn']
         self.block_timeout = block_timeout
         super(WSGIServer, self).__init__((interface, port), self.load(
             newrelic_agent=newrelic_agent
-        ), log=_logger)
+        ), log=_logger, **kwargs)
 
     def _greenlet_switch_tracer(self, what, (origin, target)):
         self._active_greenlet = target
@@ -53,17 +53,16 @@ class WSGIServer(BaseWSGIServer):
         root.preload()
         odoo.http.root = root
 
-        wrapped = WSGIApplicationWrapper(application, self)
-
+        application = WSGIApplicationWrapper(odoo_application, self)
         if newrelic_agent:
-            wrapped = newrelic_agent.WSGIApplicationWrapper(application)
+            application = newrelic_agent.WSGIApplicationWrapper(application)
             _logger.info("New Relic enabled")
 
         if config['debug_mode']:
-            wrapped = DebuggedApplication(application, evalex=True)
+            application = DebuggedApplication(application, evalex=True)
             _logger.warning("Debugger enabled, do not use in production")
 
-        return wrapped
+        return application
 
 
 class WSGIApplicationWrapper(object):
@@ -73,5 +72,4 @@ class WSGIApplicationWrapper(object):
         self._server = server
 
     def __call__(self, environ, start_response):
-        res = self._application(environ, start_response)
-        return res
+        return self._application(environ, start_response)
