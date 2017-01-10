@@ -14,7 +14,7 @@ odoo.define('websocket.Session', function(require) {
       this.ws = new WebSocket(uri);
     },
 
-    ws_call: function(path, params, options) {
+    ws_rpc_call: function(path, params, options) {
       var data = {
         path: path,
         rpc: {
@@ -29,17 +29,14 @@ odoo.define('websocket.Session', function(require) {
         function(result) {
           core.bus.trigger('rpc:result', data, result);
           if (result.error) {
-            return $.Deferred().reject("server", result.error);
+            return $.Deferred().reject('rpc', result.error);
           }
           return result.result;
-        }, function(error) {
-          var d = $.Deferred();
-          return d.reject.apply(d, ["communication"].concat(_.toArray(arguments)));
         }
       );
     },
 
-    ws_rpc: function(url, params, options) {
+    ws_rpc: function(url, params, options, fallback) {
       var self = this;
       options = _.clone(options || {});
       var shadow = options.shadow || false;
@@ -51,43 +48,44 @@ odoo.define('websocket.Session', function(require) {
       delete options.shadow;
       return self.check_session_id().then(function() {
         if (! shadow) self.trigger('request');
-        var d = self.ws_call(url, params, options).then(
+        return self.ws_rpc_call(url, params, options).then(
           function(result) {
             if (! shadow) self.trigger('response');
             return result;
           },
-          function(type, error, textStatus, errorThrown) {
-            if (type === "server") {
+          function(type, error) {
+            if (type == 'rpc') {
+              // Odoo server error
               if (! shadow) self.trigger('response');
-              if (error.code === 100) {
+              if (error.code == 100) {
                 self.uid = false;
               }
-              return $.Deferred().reject(error, $.Event());
             } else {
+              // Fall back to regular rpc for this request
               if (! shadow) self.trigger('response_failed');
-              var nerror = {
-                code: -32098,
-                message: "SocketError"
-              };
-              return $.Deferred().reject(nerror, $.Event());
+              return fallback();
             }
+
+            var d = $.Deferred().reject(error, $.Event());
+            d.fail(function() { // Allow deferred user to disable rpc_error call in fail
+              d.fail(function(error, evt) {
+                if (!evt.isDefaultPrevented()) {
+                  self.trigger('error', error, evt);
+                }
+              });
+            });
+            return d;
           }
         );
-        return d.fail(function() { // Allow deferred user to disable rpc_error call in fail
-          d.fail(function(error, event) {
-            if (!event.isDefaultPrevented()) {
-              self.trigger('error', error, event);
-            }
-          });
-        });
       });
     },
 
-    rpc: function() {
-      if (this.ws.enabled()) {
-        return this.ws_rpc.apply(this, arguments);
+    rpc: function(url, params, options) {
+      var fallback = this._super.bind(this, url, params, options);
+      if (this.ws && this.ws.enabled()) {
+        return this.ws_rpc(url, params, options, fallback);
       } else {
-        return this._super.apply(this, arguments);
+        return fallback();
       }
     }
   });

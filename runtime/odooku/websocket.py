@@ -5,6 +5,7 @@ import odoo
 import odoo.http
 from odooku.wsgi import WSGIServer
 
+import time
 import gevent
 import json
 import logging
@@ -17,15 +18,21 @@ _logger = logging.getLogger(__name__)
 
 class WebSocketRequest(odoo.http.WebRequest):
 
+    def __init__(self, httprequest):
+        super(WebSocketRequest, self).__init__(httprequest)
+
+    def dispatch(self):
+        raise NotImplementedError()
+
+
+class WebSocketRpcRequest(WebSocketRequest):
+
     _request_type = 'json'
 
-    def __init__(self, httprequest, payload):
-        path = payload['path']
-        httprequest.environ['PATH_INFO'] = path
-        super(WebSocketRequest, self).__init__(httprequest)
-        rpc = payload.get('rpc')
-        self.params = rpc.get('params', {})
-        self.id = rpc.get('id')
+    def __init__(self, httprequest, data):
+        super(WebSocketRpcRequest, self).__init__(httprequest)
+        self.params = data.get('params', {})
+        self.id = data.get('id')
         self.context = self.params.pop('context', dict(self.session.context))
 
     def dispatch(self):
@@ -40,51 +47,109 @@ class WebSocketRequest(odoo.http.WebRequest):
 
 class WebSocketChannel(object):
 
-    def __init__(self, ws, environ):
-        self.ws = ws
-        self.environ = environ
+    def __init__(self):
+        self._wss = {}
 
-    def dispatch(self, httprequest, message):
-        message = json.loads(message)
-        request = WebSocketRequest(httprequest, message.get('payload'))
+    def _add(self, ws):
+        self._wss[ws] = {}
+
+    def _remove(self, ws):
+        del self._wss[ws]
+
+    def get_request(self, httprequest, payload):
+        if 'path' in payload:
+            httprequest.environ['PATH_INFO'] = payload.get('path')
+        if 'rpc' in payload:
+            return WebSocketRpcRequest(httprequest, payload.get('rpc'))
+
+    def run_forever(self, ping_delay):
+        while True:
+            for ws, state in dict(self._wss).iteritems():
+                if ws.closed:
+                    self._remove(ws)
+                    continue
+
+                # Keep socket alive on Heroku (or other platforms).
+                last_ping = state.get('last_ping', None)
+                now = int(round(time.time()))
+                if not last_ping or last_ping + ping_delay < now:
+                    state['last_ping'] = now
+                    try:
+                        ws.send(json.dumps({'ping': now}))
+                    except WebSocketError:
+                        self._remove(ws)
+                        continue
+
+            gevent.sleep(1)
+
+    def dispatch(self, request):
         with odoo.api.Environment.manage():
             with request:
-                db = request.session.db
                 try:
-                    odoo.registry(db).check_signaling()
+                    odoo.registry(request.session.db).check_signaling()
                     with odoo.tools.mute_logger('odoo.sql_db'):
                         ir_http = request.registry['ir.http']
                 except (AttributeError, psycopg2.OperationalError, psycopg2.ProgrammingError):
-                    pass
+                    result = {}
                 else:
                     result = ir_http._dispatch()
                     ir_http.pool.signal_caches_change()
 
+        return result
+
+    def respond(self, ws, httprequest, message):
+        if any(key not in message for key in ['id', 'payload']):
+            # Invalid message, close connection and abort
+            ws.close()
+            return
+
         response = {
             'id': message.get('id'),
-            'payload': result
         }
 
-        response = json.dumps(response)
+        request = self.get_request(httprequest, message.get('payload'))
+        if request:
+            payload = self.dispatch(request)
+            response.update({
+                'payload': payload
+            })
+        else:
+            response.update({
+                'error': {
+                    'message': "Unknown payload"
+                }
+            })
 
         try:
-            self.ws.send(response)
+            ws.send(json.dumps(response))
         except WebSocketError:
             pass
 
-    def loop_forever(self):
-        while not self.ws.closed:
+    def listen(self, ws, environ):
+        self._add(ws)
+        while not ws.closed:
             try:
-                message = self.ws.receive()
+                message = ws.receive()
             except WebSocketError:
                 break
 
             if message is not None:
-                httprequest = werkzeug.wrappers.Request(self.environ.copy())
+                try:
+                    message = json.loads(message)
+                except json.JSONDecodeError:
+                    break
+
+                # Odoo heavily relies on httprequests, for each message
+                # a new httprequest will be created. This request will be
+                # based on the original environ from the socket initialization
+                # request.
+                httprequest = werkzeug.wrappers.Request(environ.copy())
                 explicit_session = odoo.http.root.setup_session(httprequest)
                 odoo.http.root.setup_db(httprequest)
                 odoo.http.root.setup_lang(httprequest)
-                gevent.spawn(self.dispatch, httprequest, message)
+                gevent.spawn(self.respond, ws, httprequest, message)
+
+        self._remove(ws)
 
 
 class WebSocketServer(WSGIServer):
@@ -96,19 +161,20 @@ class WebSocketServer(WSGIServer):
     def load(self, *args, **kwargs):
         application = super(WebSocketServer, self).load(*args, **kwargs)
         _logger.info("Websockets enabled")
-        return WebSocketApplicationWrapper(application)
+        return WebSocketApplicationWrapper(application, self.timeout)
 
 
 class WebSocketApplicationWrapper(object):
 
-    def __init__(self, application):
+    def __init__(self, application, ping_delay=None):
         self._application = application
+        self._channel = WebSocketChannel()
+        gevent.spawn(self._channel.run_forever, ping_delay)
 
     def __call__(self, environ, start_response):
         ws = environ.get('wsgi.websocket')
         if ws:
-            channel = WebSocketChannel(ws, environ)
-            channel.loop_forever()
+            self._channel.listen(ws, environ.copy())
             return []
         else:
             return self._application(environ, start_response)

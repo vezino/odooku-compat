@@ -122,7 +122,8 @@ def wsgi(ctx, port, timeout, cdn, proxy_mode, admin_password,
         server = Server(
             port,
             max_accept=max_accept,
-            newrelic_agent=newrelic_agent
+            newrelic_agent=newrelic_agent,
+            timeout=timeout
         )
 
         server.serve_forever()

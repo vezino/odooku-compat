@@ -19,34 +19,17 @@ _logger = logging.getLogger(__name__)
 class WSGIServer(BaseWSGIServer):
 
     def __init__(self, port, interface='0.0.0.0', max_accept=None,
-            newrelic_agent=None, block_timeout=None, **kwargs):
-
+            timeout=25, newrelic_agent=None, **kwargs):
+        
         self.max_accept = max_accept or config['db_maxconn']
-        self.block_timeout = block_timeout
+        self.timeout = timeout
         super(WSGIServer, self).__init__((interface, port), self.load(
             newrelic_agent=newrelic_agent
         ), log=_logger, **kwargs)
 
-    def _greenlet_switch_tracer(self, what, (origin, target)):
-        self._active_greenlet = target
-        self._greenlet_switch_counter += 1
-
-        then = self._greenlet_last_switch_time
-        now = self._greenlet_last_switch_time = time.time()
-        if then is not None:
-            blocking_time = int(round((now - then) * 1000))
-            if origin is not gevent.hub.get_hub():
-                if blocking_time > self.block_timeout:
-                    _logger.warning("Greenlet blocked for %s ms" % blocking_time)
 
     def load(self, newrelic_agent=None):
         _logger.info("Loading Odoo WSGI application")
-
-        if self.block_timeout:
-            self._active_greenlet = None
-            self._greenlet_switch_counter = 0
-            self._greenlet_last_switch_time = None
-            greenlet.settrace(self._greenlet_switch_tracer)
 
         # Patch http
         root = Root()

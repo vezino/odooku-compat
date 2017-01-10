@@ -13,10 +13,15 @@ odoo.define('websocket.WebSocket', function(require) {
       this._onclose = this._onclose.bind(this);
       this._onmessage = this._onmessage.bind(this);
       this._onerror = this._onerror.bind(this);
+      this._reachable = null; // Indicates if the socket managed to connect at least once
     },
 
     enabled: function() {
-      return 'WebSocket' in window && window.odoo._ws_enabled;
+      return (
+        'WebSocket' in window
+        && window.odoo._ws_enabled
+        && this._reachable != false
+      );
     },
 
     _bind: function(ws) {
@@ -32,11 +37,15 @@ odoo.define('websocket.WebSocket', function(require) {
     },
 
     _onclose: function(evt) {
+      // Unbind no matter what
       this._unbind(evt.target);
       if (this._ws === evt.target) {
+        // Close current socket
         this._ws = null;
+
+        // Reject pending requests
         _.forEach(this._requests, function(d) {
-          d.reject();
+          d.reject('websocket:close', evt);
         });
       }
     },
@@ -48,15 +57,28 @@ odoo.define('websocket.WebSocket', function(require) {
           this._requests[message.id].resolve(message.payload);
         }
       } else {
-
+        // Ping
       }
     },
 
     _onerror: function(evt) {
       if (this._ws === evt.target && this._ws.readyState !== WebSocket.OPEN) {
+        // Our current websocket is not available (anymore), close it.
+        this._unbind(this._ws);
         this._ws = null;
+
+        if (this._connecting) {
+          // Error during connecting
+          // Disable the socket only if it has never been reached before
+          if (this._reachable == null) {
+            this._reachable = false;
+          }
+          this._connecting = false;
+        }
+
+        // Reject pending requests
         _.forEach(this._requests, function(d) {
-          d.reject();
+          d.reject('websocket:error', evt);
         });
       }
     },
@@ -67,10 +89,13 @@ odoo.define('websocket.WebSocket', function(require) {
       if(!this._ws) {
         this._ws = new WebSocket(this._uri);
         this._bind(this._ws);
+        this._connecting = true;
       }
 
       if(this._ws.readyState === WebSocket.CONNECTING) {
         this._ws.addEventListener("open", function(evt) {
+          self._connecting = false;
+          self._reachable = true;
           d.resolve(evt.target);
         });
       } else {
