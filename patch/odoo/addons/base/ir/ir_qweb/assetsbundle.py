@@ -180,7 +180,17 @@ class AssetsBundle(object):
         if 'xml' not in tools.config['dev_mode']:
             self.env['ir.qweb']._get_asset.clear_cache(self.env['ir.qweb'])
 
-        return ira.sudo().search(domain).unlink()
+        try:
+            return ira.sudo().search(domain).unlink()
+        except psycopg2.Error:
+            # Prevents bad query: DELETE FROM ir_attachment WHERE id IN [x]
+            # Which occurs during concurrent creation of assetbundles.
+            # Unlinking an asset bundle that has been previously unlinked
+            # will no longer throw this error. This request will be blocked
+            # by postgres untill the previous request was comitted. This
+            # request will continue to function and use the previously created
+            # attachments.
+            self.env.cr.rollback()
 
     def get_attachments(self, type):
         """ Return the ir.attachment records for a given bundle. This method takes care of mitigating
