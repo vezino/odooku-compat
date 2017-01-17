@@ -5,3 +5,4 @@ from cdn import *
 from shell import *
 from trans import *
 from runtests import *
+from info import *

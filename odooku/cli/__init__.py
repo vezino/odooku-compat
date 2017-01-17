@@ -2,7 +2,7 @@ import click
 import urlparse
 
 from odooku.params import params
-from odooku.cli.helpers import prefix_envvar
+from odooku.cli.helpers import prefix_envvar, resolve_addons
 
 import logging
 
@@ -73,6 +73,7 @@ import logging
 @click.option(
     '--addons',
     required=True,
+    callback=resolve_addons,
     envvar=prefix_envvar('ADDONS')
 )
 @click.option(
