@@ -10,7 +10,16 @@ setup(
     license='Apache Software License',
     packages=find_packages(),
     zip_safe=False,
-    install_requires=[],
+    install_requires=[
+        'boto3>=1.4.0',
+        'click==6.6',
+        'redis==2.10.5',
+        'bpython==0.15.0',
+        'gevent==1.1.2',
+        'psycogreen==1.0',
+        'gevent-websocket==0.9.5'
+
+    ],
     entry_points='''
         [console_scripts]
         odooku=odooku.cli:entrypoint
