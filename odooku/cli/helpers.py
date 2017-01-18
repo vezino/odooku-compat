@@ -1,23 +1,15 @@
 import click
 import os.path
-import json
 import odooku
+from odooku.projects import project_addons
 
 DEFAULT_ADDONS = [
     os.path.join(os.path.dirname(odooku.__file__), 'addons')
 ]
 
-ODOOKU_JSON_FILE = os.path.abspath('odooku.json')
-
 def resolve_addons(ctx, param, value):
     addons = value.split(',')
-    odooku_json = {}
-    if os.path.isfile(ODOOKU_JSON_FILE):
-        with open(ODOOKU_JSON_FILE) as f:
-            odooku_json = json.load(f)
-
-    extra_addons = odooku_json.get('odooku', {}).get('extra_addons', [])
-    addons = list(set(addons) | set(DEFAULT_ADDONS) | set(extra_addons))
+    addons = list(set(addons) | set(DEFAULT_ADDONS) | set(project_addons))
     return ','.join(addons)
 
 def resolve_db_name(ctx, param, value):
