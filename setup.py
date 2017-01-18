@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='odooku',
-    version='10.0.1000',
+    version='10.0.1001',
     url='https://github.com/adaptivdesign/odooku-compat',
     author='Raymond Reggers - Adaptiv Design',
     author_email='raymond@adaptiv.nl',
