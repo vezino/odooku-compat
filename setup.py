@@ -2,13 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='odooku',
-    version='10.0.1001',
+    version='10.0.1002',
     url='https://github.com/adaptivdesign/odooku-compat',
     author='Raymond Reggers - Adaptiv Design',
     author_email='raymond@adaptiv.nl',
     description=('Odooku'),
     license='Apache Software License',
     packages=find_packages(),
+    include_package_data=True,
     zip_safe=False,
     install_requires=[
         'boto3>=1.4.0',
