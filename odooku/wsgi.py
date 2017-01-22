@@ -5,8 +5,6 @@ import odoo.http
 from odoo.service.wsgi_server import application as odoo_application
 from odoo.tools import config
 
-from odooku.http import Root
-
 import time
 import logging
 import greenlet
@@ -20,7 +18,7 @@ class WSGIServer(BaseWSGIServer):
 
     def __init__(self, port, interface='0.0.0.0', max_accept=None,
             timeout=25, newrelic_agent=None, **kwargs):
-        
+
         self.max_accept = max_accept or config['db_maxconn']
         self.timeout = timeout
         super(WSGIServer, self).__init__((interface, port), self.load(
@@ -30,11 +28,6 @@ class WSGIServer(BaseWSGIServer):
 
     def load(self, newrelic_agent=None):
         _logger.info("Loading Odoo WSGI application")
-
-        # Patch http
-        root = Root()
-        root.preload()
-        odoo.http.root = root
 
         application = WSGIApplicationWrapper(odoo_application, self)
         if newrelic_agent:

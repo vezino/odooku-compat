@@ -4,6 +4,7 @@ from geventwebsocket.exceptions import WebSocketError
 import odoo
 import odoo.http
 from odooku.wsgi import WSGIServer
+from odooku.request import WebRequestMixin
 
 import time
 import gevent
@@ -16,7 +17,7 @@ import werkzeug.wrappers
 _logger = logging.getLogger(__name__)
 
 
-class WebSocketRequest(odoo.http.WebRequest):
+class WebSocketRequest(WebRequestMixin, odoo.http.WebRequest):
 
     def __init__(self, httprequest):
         super(WebSocketRequest, self).__init__(httprequest)

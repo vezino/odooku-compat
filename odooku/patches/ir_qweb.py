@@ -1,10 +1,14 @@
-from odooku.patcher import Patch
+from odooku.patch import SoftPatch
 
-class patch_checksum(Patch):
+class patch_checksum(SoftPatch):
 
     @staticmethod
     def apply_patch():
-        class AssetsBundle_(AssetsBundle):
+
+        from odooku.patch.helpers import patch_class
+
+        @patch_class(globals()['AssetsBundle'])
+        class AssetsBundle(object):
 
             @func.lazy_property
             def checksum(self):
@@ -15,10 +19,10 @@ class patch_checksum(Patch):
                 check = str([sorted(f.items()) for f in self.files] + self.remains + [self.last_modified])
                 return hashlib.sha1(check).hexdigest()
 
-        return dict(AssetsBundle=AssetsBundle_)
+        return locals()
 
 
-class patch_checksum2(Patch):
+class patch_module_installed(SoftPatch):
 
     @staticmethod
     def apply_patch():
@@ -41,18 +45,22 @@ class patch_checksum2(Patch):
             sorted_modules = topological_sort(modules)
             return sorted_modules
 
-        return dict(module_installed=module_installed)
+        return locals()
 
 
-class patch_clean_attachments(Patch):
+class patch_clean_attachments(SoftPatch):
 
     @staticmethod
     def apply_patch():
-        class AssetsBundle_(AssetsBundle):
+
+        from odooku.patch.helpers import patch_class
+
+        @patch_class(globals()['AssetsBundle'])
+        class AssetsBundle(object):
 
             def clean_attachments(self, type):
                 try:
-                    return super(AssetsBundle_, self).clean_attachments(type)
+                    return self.clean_attachments_(type)
                 except psycopg2.Error:
                     # Prevents bad query: DELETE FROM ir_attachment WHERE id IN [x]
                     # Which occurs during concurrent creation of assetbundles.
@@ -63,9 +71,9 @@ class patch_clean_attachments(Patch):
                     # attachments.
                     self.env.cr.rollback()
 
-        return dict(AssetsBundle=AssetsBundle_)
+        return locals()
 
 
 patch_checksum('odoo.addons.base.ir.ir_qweb.assetsbundle')
-patch_checksum2('odoo.addons.web.controllers.main')
+patch_module_installed('odoo.addons.web.controllers.main')
 patch_clean_attachments('odoo.addons.base.ir.ir_qweb.assetsbundle')

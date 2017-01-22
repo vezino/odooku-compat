@@ -1,7 +1,7 @@
-from odooku.patcher import Patch
+from odooku.patch import SoftPatch
 
 
-class patch_check_super(Patch):
+class patch_check_super(SoftPatch):
 
     @staticmethod
     def apply_patch():
@@ -15,7 +15,7 @@ class patch_check_super(Patch):
         return dict(check_super=check_super)
 
 
-class patch_dump_db(Patch):
+class patch_dump_db(SoftPatch):
 
     @staticmethod
     def apply_patch():
@@ -73,7 +73,7 @@ class patch_dump_db(Patch):
         return dict(dump_db=dump_db)
 
 
-class patch_exp_change_admin_password(Patch):
+class patch_exp_change_admin_password(SoftPatch):
 
     @staticmethod
     def apply_patch():
@@ -85,7 +85,7 @@ class patch_exp_change_admin_password(Patch):
         return dict(exp_change_admin_password=exp_change_admin_password)
 
 
-class patch_list_dbs(Patch):
+class patch_list_dbs(SoftPatch):
 
     @staticmethod
     def apply_patch():
@@ -99,7 +99,7 @@ class patch_list_dbs(Patch):
         return dict(list_dbs=patched_list_dbs)
 
 
-class patch_base_sql(Patch):
+class patch_base_sql(SoftPatch):
 
     @staticmethod
     def apply_patch():

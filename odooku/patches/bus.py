@@ -1,4 +1,4 @@
-from odooku.patcher import HardPatch
+from odooku.patch import HardPatch
 
 class patch_bus(HardPatch):
 

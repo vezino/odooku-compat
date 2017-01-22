@@ -1,13 +1,15 @@
-from odooku.patcher import Patch
+from odooku.patch import SoftPatch
 
-class patch_registry_concurrency(Patch):
+class patch_registry_concurrency(SoftPatch):
 
     @staticmethod
     def apply_patch():
 
+        from odooku.patch.helpers import patch_class
         from gevent.lock import RLock
 
-        class Registry_(Registry):
+        @patch_class(globals()['Registry'])
+        class Registry(object):
             """ Model registry for a particular database.
 
             The registry is essentially a mapping between model names and model classes.
@@ -110,7 +112,7 @@ class patch_registry_concurrency(Patch):
                 self._lock = self._saved_lock
                 self._saved_lock = None
 
-        return dict(Registry=Registry_)
+        return locals()
 
 
 patch_registry_concurrency('odoo.modules.registry')

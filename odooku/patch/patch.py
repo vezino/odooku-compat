@@ -2,6 +2,39 @@ import sys
 import importlib
 from types import FunctionType, ModuleType
 
+
+class SoftPatch(object):
+
+    def __init__(self, module_name):
+        self.module_name = module_name
+        patcher._register(module_name, self)
+
+    def _apply_patch(self, module):
+        apply_patch = FunctionType(self.apply_patch.func_code, module.__dict__)
+        module.__dict__.update(apply_patch())
+
+    @staticmethod
+    def apply_patch():
+        return {}
+
+
+class HardPatch(object):
+
+    def __init__(self, module_name):
+        self.module_name = module_name
+        patcher._register(module_name, self)
+
+    def _create_module(self):
+        module = ModuleType(self.module_name)
+        apply_patch = FunctionType(self.apply_patch.func_code, dict(globals(), **module.__dict__))
+        module.__dict__.update(apply_patch())
+        return module
+
+    @staticmethod
+    def apply_patch():
+        return {}
+
+
 class Patcher(object):
 
     def __init__(self):
@@ -12,7 +45,7 @@ class Patcher(object):
         self._loading = {}
 
     def _register(self, module_name, patch):
-        if isinstance(patch, Patch):
+        if isinstance(patch, SoftPatch):
             if module_name not in self._soft_patches:
                 self._soft_patches[module_name] = []
             self._soft_patches[module_name].append(patch)
@@ -43,6 +76,7 @@ class Patcher(object):
             # Apply soft patches the module
             for patch in self._soft_patches.get(module_name, []):
                 patch._apply_patch(module)
+
             self._loaded[module_name] = module
 
         return self._loaded[module_name]
@@ -50,35 +84,3 @@ class Patcher(object):
 
 patcher = Patcher()
 sys.meta_path.append(patcher)
-
-
-class Patch(object):
-
-    def __init__(self, module_name):
-        self.module_name = module_name
-        patcher._register(module_name, self)
-
-    def _apply_patch(self, module):
-        apply_patch = FunctionType(self.apply_patch.func_code, module.__dict__)
-        module.__dict__.update(apply_patch())
-
-    @staticmethod
-    def apply_patch():
-        return {}
-
-
-class HardPatch(object):
-
-    def __init__(self, module_name):
-        self.module_name = module_name
-        patcher._register(module_name, self)
-
-    def _create_module(self):
-        module = ModuleType(self.module_name)
-        apply_patch = FunctionType(self.apply_patch.func_code, dict(globals(), **module.__dict__))
-        module.__dict__.update(apply_patch())
-        return module
-
-    @staticmethod
-    def apply_patch():
-        return {}
