@@ -31,7 +31,7 @@ class patch_bus(HardPatch):
         # PATCH !!
         def _get_imbus_db():
             if odoo.tools.config['db_name']:
-                return odoo.tools.config['db_name'].split(',')
+                return odoo.tools.config['db_name'].split(',')[0]
             return 'postgres'
 
 
