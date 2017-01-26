@@ -132,26 +132,14 @@ def dump(ctx, db_name, s3_file):
     callback=resolve_db_name
 )
 @click.option(
+    '--copy',
+    is_flag=True
+)
+@click.option(
     '--s3-file'
 )
-@click.option(
-    '--truncate',
-    is_flag=True
-)
-@click.option(
-    '--update',
-    is_flag=True
-)
-@click.option(
-    '--skip-pg',
-    is_flag=True
-)
-@click.option(
-    '--skip-filestore',
-    is_flag=True
-)
 @click.pass_context
-def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, skip_filestore=None):
+def restore(ctx, db_name, copy, s3_file):
     config = (
         ctx.obj['config']
     )
@@ -179,11 +167,7 @@ def restore(ctx, db_name, s3_file, truncate=None, update=None, skip_pg=None, ski
             restore_db(
                 db_name,
                 t.name,
-                copy=True,
-                truncate=truncate,
-                update=update,
-                skip_pg=skip_pg,
-                skip_filestore=skip_filestore
+                copy=copy,
             )
 
         os.unlink(t.name)

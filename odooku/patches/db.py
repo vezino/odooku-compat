@@ -20,6 +20,8 @@ class patch_dump_db(SoftPatch):
     @staticmethod
     def apply_patch():
 
+        from odoo import api, models, SUPERUSER_ID
+
         def dump_db(db_name, stream=None, backup_format='zip'):
             """Dump database `db` into file-like object `stream` if stream is None
             return a file object with the dump """
@@ -29,21 +31,23 @@ class patch_dump_db(SoftPatch):
             cmd = ['pg_dump', '--no-owner']
             cmd.append(db_name)
 
-            registry = odoo.modules.registry.RegistryManager.new(db_name)
             if backup_format == 'zip':
                 with odoo.tools.osutil.tempdir() as dump_dir:
                     # PATCH !!
                     # Instead of copying the filestore directory, read
-                    # all attachments from filestore/s3-bucket.
-                    attachment = registry['ir.attachment']
-                    # For some reason we can't search installed attachments...
+                    # all attachments from filestore/s3-bucket
+                    registry = odoo.modules.registry.RegistryManager.new(db_name)
+                    # We need all attachments, bypass regular search
                     with registry.cursor() as cr:
-                        cr.execute("SELECT id FROM ir_attachment")
-                        for id in [rec['id'] for rec in cr.dictfetchall()]:
-                            rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
-                            if rec.store_fname:
-                                full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
-                                bin_value = rec.datas
+                        env = api.Environment(cr, SUPERUSER_ID, {})
+                        IrAttachment = env['ir.attachment']
+                        ids = models.Model._search(IrAttachment, [])
+                        for attachment in IrAttachment.browse(ids):
+                            if attachment.store_fname:
+                                full_path = os.path.join(dump_dir, 'filestore', attachment.store_fname)
+                                bin_value = attachment.datas
+                                if bin_value is False:
+                                    continue
                                 if not os.path.exists(os.path.dirname(full_path)):
                                     os.makedirs(os.path.dirname(full_path))
                                 with open(full_path, 'wb') as fp:
