@@ -97,7 +97,7 @@ import logging
 )
 @click.pass_context
 def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
-        aws_access_key_id, aws_secret_access_key, s3_bucket,
+        aws_access_key_id, aws_secret_access_key, aws_region, s3_bucket,
         s3_endpoint_url, s3_custom_domain, s3_addressing_style,
         addons, tmp_dir, debug, statsd_host):
 
@@ -111,6 +111,7 @@ def main(ctx, database_url, database_maxconn, redis_url, redis_maxconn,
         bucket=s3_bucket,
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key,
+        aws_region=aws_region,
         endpoint_url=s3_endpoint_url,
         custom_domain=s3_custom_domain,
         addressing_style=s3_addressing_style,
