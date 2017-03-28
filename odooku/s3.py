@@ -26,13 +26,14 @@ class S3NoSuchKey(S3Error):
 class S3Pool(object):
 
     def __init__(self, bucket, aws_access_key_id=None,
-            aws_secret_access_key=None, endpoint_url=None,
+            aws_region=None, aws_secret_access_key=None,
             addressing_style=None, signature_version=None,
-            custom_domain=None):
+            custom_domain=None, endpoint_url=None):
         self._local = Local()
         self._bucket = bucket
         self._aws_access_key_id = aws_access_key_id
         self._aws_secret_access_key = aws_secret_access_key
+        self._aws_region = aws_region
         self._endpoint_url = endpoint_url
         self._addressing_style = addressing_style
         self._signature_version = signature_version
@@ -65,6 +66,7 @@ class S3Pool(object):
             _logger.info("Creating new S3 Client")
             self._local.client = boto3.client(
                 's3',
+                region_name=self._aws_region,
                 aws_access_key_id=self._aws_access_key_id,
                 aws_secret_access_key=self._aws_secret_access_key,
                 endpoint_url=self._endpoint_url,

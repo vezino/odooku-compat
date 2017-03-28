@@ -50,6 +50,11 @@ import logging
     help="Your AWS secret access key."
 )
 @click.option(
+    '--aws-region',
+    envvar="AWS_REGION",
+    help="Your AWS region."
+)
+@click.option(
     '--s3-bucket',
     envvar="S3_BUCKET",
     help="S3 bucket for filestore."
