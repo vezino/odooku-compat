@@ -26,13 +26,11 @@ def serialize(ctx, db_name, spec=None):
     from odoo.modules.registry import RegistryManager
     registry = RegistryManager.get(db_name)
 
-    from odooku.data import Serializer
+    from odooku.data.serialization import Serializer
     json = None
     if spec is not None:
         with open(f, 'w'):
             json = f.read()
-    else:
-        json = sys.stdin.read()
 
     serializer = Serializer(registry)
     serializer.serialize()
