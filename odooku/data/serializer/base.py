@@ -8,5 +8,5 @@ class BaseFieldSerializer(object):
         return []
 
     @classmethod
-    def factory(cls, field_name, field):
+    def factory(cls, field_name, field, config=None):
         raise NotImplementedError()

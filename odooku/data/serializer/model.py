@@ -18,7 +18,10 @@ class ModelSerializer(object):
         self._fields[field_name] = serializer
 
     def serialize(self, record):
-        pass
+        result = {}
+        for field_name, field in self._fields.iteritems():
+            result[field_name] = field.serialize(record)
+        return result
 
     @property
     def dependencies(self):
@@ -28,7 +31,7 @@ class ModelSerializer(object):
         return dependencies
 
     @classmethod
-    def factory(cls, model):
+    def factory(cls, model, config=None):
         if model._abstract or model._transient:
             raise ValueError(model)
 

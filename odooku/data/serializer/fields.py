@@ -7,8 +7,8 @@ class FieldSerializer(BaseFieldSerializer):
         self._field_name = field_name
 
     def serialize(self, record):
-        return record.get(self._field_name)
+        return record.read(self._field_name)
 
     @classmethod
-    def factory(cls, field_name, field):
+    def factory(cls, field_name, field, config=None):
         return cls(field_name)

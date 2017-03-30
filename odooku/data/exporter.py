@@ -5,34 +5,21 @@ import logging
 
 from odooku.api import environment
 from odooku.utils.sort import topological_sort, CyclicDependencyError
-from .model import ModelSerializer
+from .serializer import ModelSerializer
+from .config import ExportConfig
+from .match import match, match_any
 
 _logger = logging.getLogger(__name__)
 
 
-def match(value, pattern):
-    pattern = pattern.split('*')
-    if len(pattern) == 2:
-        return value.startswith(pattern[0])
-    elif len(pattern) == 1:
-        return value == pattern[0]
-    else:
-        raise ValueError(pattern)
+class Exporter(object):
 
-
-def match_any(value, patterns):
-    return any([
-        match(value, pattern)
-        for pattern in patterns
-    ])
-
-
-class Serializer(object):
-
-    def __init__(self, registry, check=False):
+    def __init__(self, registry, config=None, check=False):
         self._registry = registry
         self._check = check
-        self._exclude = ['ir.*', 'base.*', 'res.*']
+        self._config = config or ExportConfig.factory(
+            excludes=['res.*', 'ir.*', 'base.*']
+        )
 
     def resolve_dependencies(self, model_name, model_serializer):
         # Resolve dependencies for the given model serializer
@@ -40,7 +27,7 @@ class Serializer(object):
         dependencies = set(model_serializer.dependencies)
         dependencies.discard(model_name)
         for dependency in list(dependencies):
-            if match_any(dependency, self._exclude):
+            if match_any(dependency, self._config.excludes):
                 dependencies.remove(dependency)
 
         return dependencies
@@ -50,10 +37,16 @@ class Serializer(object):
         for model_name, model in env.iteritems():
             if (model._transient
                     or model._abstract
-                    or match_any(model_name, self._exclude)):
+                    or match_any(model_name, self._config.excludes)
+                    or (self._config.includes
+                        and not match_any(model_name, self._config.includes))
+                    ):
                 continue
 
-            model_serializer = ModelSerializer.factory(model)
+            model_serializer = ModelSerializer.factory(
+                model,
+                config=self._config.models.get(model_name, None)
+            )
             model_serializers[model_name] = model_serializer
 
         # Build dependency graph
@@ -74,7 +67,7 @@ class Serializer(object):
         return model_serializers
 
 
-    def serialize(self):
+    def export(self):
         with self._registry.cursor() as cr:
             with environment(cr) as env:
                 model_serializers = self.get_model_serializers(env)

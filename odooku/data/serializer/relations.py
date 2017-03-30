@@ -12,7 +12,7 @@ class RelationSerializer(BaseFieldSerializer):
         return [self._relation]
 
     @classmethod
-    def factory(cls, field_name, field):
+    def factory(cls, field_name, field, config=None):
         return cls(field_name, field['relation'])
 
 
