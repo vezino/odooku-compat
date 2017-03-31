@@ -30,7 +30,7 @@ class ModelDeserializer(object):
             field = self._fields[field_name]
             result[field_name] = field.deserialize(values, context)
         return result
-    
+
     def deserialize_pk(self, pk, context):
         if not isinstance(pk, dict):
             return pk
@@ -57,7 +57,7 @@ class ModelDeserializer(object):
 
     @classmethod
     def factory(cls, model_name, model):
-        if model._abstract or model._transient:
+        if model._transient:
             raise ValueError(model)
 
         deserializer = cls(

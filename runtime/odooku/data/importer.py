@@ -20,7 +20,7 @@ class Importer(object):
     def get_model_deserializers(self, env):
         model_deserializers = OrderedDict()
         for model_name, model in env.registry.iteritems():
-            if (model._transient or model._abstract):
+            if model._transient:
                 continue
 
             model_deserializer = ModelDeserializer.factory(
