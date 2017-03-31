@@ -4,7 +4,7 @@ import json
 import logging
 
 from odooku.api import environment
-from odooku.utils.sort import topological_sort, CyclicDependencyError
+from .sort import topological_sort, CyclicDependencyError
 from .serializer import ModelSerializer, SerializerContext
 from .config import ExportConfig
 from .match import match, match_any
