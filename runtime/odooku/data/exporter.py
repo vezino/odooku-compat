@@ -41,7 +41,7 @@ class Exporter(object):
 
     def get_model_serializers(self, env):
         model_serializers = OrderedDict()
-        for model_name, model in env.iteritems():
+        for model_name, model in env.registry.iteritems():
             if (model._transient or model._abstract):
                 continue
 
