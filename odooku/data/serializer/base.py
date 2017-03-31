@@ -1,10 +1,9 @@
 class BaseFieldSerializer(object):
 
-    def serialize(self, record):
+    def serialize(self, record, context):
         raise NotImplementedError()
 
-    @property
-    def dependencies(self):
+    def resolve_dependencies(self, context):
         return []
 
     @classmethod

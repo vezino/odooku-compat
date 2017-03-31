@@ -1,0 +1,128 @@
+{
+  "includes": [
+    "ir.sequence",
+    "res.company",
+    "res.partner",
+    "account.account",
+    "account.invoice",
+    "account.invoice.line",
+    "account.journal",
+    "product.category",
+    "product.product",
+    "product.template",
+    "product.uom",
+    "product.attribute",
+    "product.attribute.value"
+  ],
+  "models": {
+    "ir.sequence": {
+      "nk": [
+        "name",
+        "code",
+        "company_id"
+      ]
+    },
+    "res.company": {
+      "nk": [
+        "name"
+      ],
+      "includes": [
+        "name",
+        "partner_id",
+        "currency_id"
+      ]
+    },
+    "res.partner": {
+      "nk": [
+        "name"
+      ],
+      "includes": [
+        "name",
+        "parent_id",
+        "title",
+        "lang",
+        "user_id",
+        "country_id",
+        "invoice_warn",
+        "notify_email"
+      ]
+    },
+    "product.category": {
+      "nk": [
+        "parent_id",
+        "name"
+      ],
+      "excludes": [
+        "parent_left",
+        "parent_right"
+      ]
+    },
+    "product.uom": {
+      "nk": [
+        "name"
+      ]
+    },
+    "product.attribute": {
+      "nk": [
+        "name"
+      ]
+    },
+    "product.template": {
+      "nk": [
+        "name",
+        "type",
+        "default_code",
+        "company_id"
+      ]
+    },
+    "product.product": {
+      "nk": [
+        "product_tmpl_id",
+        "default_code"
+      ]
+    },
+    "account.account": {
+
+    },
+    "account.payment.method": {
+      "nk": [
+        "name",
+        "code",
+        "payment_type"
+      ]
+    },
+    "account.journal": {
+
+    },
+    "account.account.type": {
+      "nk": [
+        "name",
+        "type"
+      ]
+    },
+    "account.account.tag": {
+      "nk": [
+        "name"
+      ]
+    },
+    "account.invoice": {
+      "nk": [
+        "number"
+      ],
+      "includes": [
+        "number",
+        "state",
+        "sent",
+        "date_invoice",
+        "reference_type",
+        "date_due",
+        "partner_id",
+        "currency_id",
+        "company_id",
+        "journal_id",
+        "date",
+        "account_id"
+      ]
+    }
+  }
+}
