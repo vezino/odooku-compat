@@ -1,8 +1,6 @@
 import click
 import sys
 
-from odooku.cli.helpers import resolve_db_name
-
 
 __all__ = [
     'data'
@@ -11,8 +9,7 @@ __all__ = [
 
 @click.command()
 @click.option(
-    '--db-name',
-    callback=resolve_db_name
+    '--db-name'
 )
 @click.option(
     '--strict',
@@ -27,6 +24,7 @@ def export(ctx, db_name, strict, config_file=None):
         ctx.obj['config']
     )
 
+    db_name = db_name or config.get('db_name', '').split(',')[0]
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.get(db_name)
 
@@ -42,8 +40,7 @@ def export(ctx, db_name, strict, config_file=None):
 
 @click.command('import')
 @click.option(
-    '--db-name',
-    callback=resolve_db_name
+    '--db-name'
 )
 @click.option(
     '--fake',
@@ -62,6 +59,7 @@ def import_(ctx, db_name, fake, strict, config_file):
         ctx.obj['config']
     )
 
+    db_name = db_name or config.get('db_name', '').split(',')[0]
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.get(db_name)
     from odooku.data import Importer
