@@ -1,4 +1,4 @@
-from .base import BaseFieldSerializer
+from odooku.data.serialization.base import BaseFieldSerializer
 
 
 class FieldSerializer(BaseFieldSerializer):
@@ -8,6 +8,9 @@ class FieldSerializer(BaseFieldSerializer):
 
     def serialize(self, record, context):
         return record.read([self._field_name])[0][self._field_name]
+
+    def deserialize(self, values, context):
+        return values[self._field_name]
 
     @classmethod
     def factory(cls, field_name, field, config=None):
