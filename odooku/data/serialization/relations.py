@@ -73,4 +73,5 @@ class ManyToManySerializer(RelationSerializer):
             serializer = context.serializers[self._relation]
             for pk in value:
                 result.append(serializer.deserialize_pk(pk, context))
-        return result
+
+        return [(6, 0, result)]

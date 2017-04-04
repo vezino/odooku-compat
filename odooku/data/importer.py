@@ -40,8 +40,13 @@ class Importer(object):
                 try:
                     serializer.deserialize_pk(context.pk, context)
                 except NaturalKeyNotFound:
-                    _logger.warning("Natural key for %s:%s is no longer valid, relinking" % (context.model_name, new_pk))
-                    context.relink_pk(new_pk)
+                    _logger.warning("Natural key %s for %s:%s is no longer valid, updating" % (context.pk, context.model_name, new_pk))
+                    model.browse([new_pk])[0].write(serializer.deserialize_pk(context.pk, context, no_lookup=True))
+                    try:
+                        serializer.deserialize_pk(context.pk, context)
+                    except NaturalKeyNotFound:
+                        _logger.warning("Natural key %s for %s:%s is no longer valid, relinking" % (context.pk, context.model_name, new_pk))
+                        context.relink_pk(new_pk)
         else:
             model.browse([existing])[0].write(values)
 

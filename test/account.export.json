@@ -3,9 +3,12 @@
     "ir.sequence",
     "res.company",
     "res.partner",
+    "res.users",
     "account.account",
+    "account.payment.term",
     "account.invoice",
     "account.invoice.line",
+    "account.invoice.tax",
     "account.journal",
     "product.category",
     "product.product",
@@ -19,6 +22,13 @@
       "nk": [
         "name",
         "code",
+        "company_id"
+      ]
+    },
+    "res.users": {
+      "includes": [
+        "login",
+        "partner_id",
         "company_id"
       ]
     },
@@ -41,7 +51,6 @@
         "parent_id",
         "title",
         "lang",
-        "user_id",
         "country_id",
         "invoice_warn",
         "notify_email"
@@ -96,8 +105,11 @@
         "payment_type"
       ]
     },
-    "account.journal": {
-
+    "account.move": {
+      "nk": [
+        "name",
+        "journal_id"
+      ]
     },
     "account.account.type": {
       "nk": [
@@ -110,23 +122,17 @@
         "name"
       ]
     },
+    "account.payment.term": {
+      "nk": [
+        "name"
+      ]
+    },
     "account.invoice": {
       "nk": [
         "number"
       ],
-      "includes": [
-        "number",
-        "state",
-        "sent",
-        "date_invoice",
-        "reference_type",
-        "date_due",
-        "partner_id",
-        "currency_id",
-        "company_id",
-        "journal_id",
-        "date",
-        "account_id"
+      "excludes": [
+        "move_id"
       ]
     },
     "account.invoice.line": {

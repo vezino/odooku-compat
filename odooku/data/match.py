@@ -1,4 +1,7 @@
-def match(value, pattern):
+def match(value, pattern, exact=False):
+    if exact:
+        return value == pattern
+    
     pattern = pattern.split('*')
     if len(pattern) == 2:
         return value.startswith(pattern[0])
@@ -8,8 +11,8 @@ def match(value, pattern):
         raise ValueError(pattern)
 
 
-def match_any(value, patterns):
+def match_any(value, patterns, exact=False):
     return any([
-        match(value, pattern)
+        match(value, pattern, exact=exact)
         for pattern in patterns
     ])

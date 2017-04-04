@@ -75,7 +75,7 @@ class ModelSerializer(object):
             result[field_name] = field.deserialize(values, context)
         return result
 
-    def deserialize_pk(self, pk, context):
+    def deserialize_pk(self, pk, context, no_lookup=False):
         if not isinstance(pk, dict):
             return pk
 
@@ -87,6 +87,9 @@ class ModelSerializer(object):
         for field_name, value in pk.iteritems():
             field = self._fields[field_name]
             nk[field_name] = field.deserialize(pk, context)
+
+        if no_lookup:
+            return nk
 
         lookup = [
             (k, '=', v)
@@ -137,17 +140,24 @@ class ModelSerializer(object):
             nk_fields=nk_fields
         )
 
+        def include_field(field_name, field):
+            if not field.get('store', False) or field['type'] in excluded_field_types:
+                return False
+
+            if (config and (match_any(field_name, config.excludes)
+                    or (config.includes
+                        and not match_any(field_name, config.includes)
+                    ))):
+
+                if field.get('required', False):
+                    _logger.warning("Field '%s' on model '%s' is marked as required but will not be serialized" % (field_name, model_name))
+
+                return False
+
+            return True
+
         for field_name, field in model.fields_get().iteritems():
-            if field.get('store', False) and not field['type'] in excluded_field_types:
-                if (config and (match_any(field_name, config.excludes)
-                        or (config.includes
-                            and not match_any(field_name, config.includes)
-                        ))):
-
-                    if field.get('required', False):
-                        _logger.warning("Field '%s' on model '%s' is marked as required but will not be serialized" % (field_name, model_name))
-                    continue
-
+            if include_field(field_name, field):
                 field_cls = field_types.get(field['type'], FieldSerializer)
                 field_serializer = field_cls.factory(
                     field_name,
@@ -155,5 +165,7 @@ class ModelSerializer(object):
                 )
 
                 serializer.add_field(field_name, field_serializer)
+            elif config and match_any(field_name, config.includes, exact=True):
+                    _logger.warning("Field '%s' in inclusions is missing from model '%s'" % (field_name, model_name))
 
         return serializer
