@@ -30,7 +30,7 @@ class SerializationContext(object):
                     config=self._config.models.get(model_name, None)
                 ))
                 for model_name in self.env.registry.iterkeys()
-                if not (self.env[model_name]._transient or self.env[model_name]._abstract)
+                if not (self.env[model_name]._transient)
             ])
 
         return self._serializers
