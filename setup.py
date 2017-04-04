@@ -18,7 +18,8 @@ setup(
         'bpython==0.15.0',
         'gevent==1.1.2',
         'psycogreen==1.0',
-        'gevent-websocket==0.9.5'
+        'gevent-websocket==0.9.5',
+        'ijson==2.3'
     ],
     entry_points='''
         [console_scripts]

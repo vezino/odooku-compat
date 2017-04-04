@@ -1,8 +1,17 @@
 from collections import OrderedDict
 import logging
 
-from .fields import FieldSerializer
-from .relations import ManyToOneSerializer, ManyToManySerializer
+from odooku.data.serialization.fields import FieldSerializer
+from odooku.data.exceptions import (
+    NaturalKeyMultipleFound,
+    NaturalKeyNotFound,
+    NaturalKeyMissing
+)
+
+from odooku.data.serialization.relations import (
+    ManyToOneSerializer,
+    ManyToManySerializer
+)
 
 from odooku.data.match import match, match_any
 
@@ -38,7 +47,8 @@ class ModelSerializer(object):
 
     def serialize_pk(self, pk, context):
         if not self._nk_fields:
-            _logger.warning("Did not serialize a natural key for %s:%s" % (self._model_name, pk))
+            if context.strict:
+                raise NaturalKeyMissing("Did not serialize a natural key for %s:%s" % (self._model_name, pk))
             return pk
 
         nk = {}
@@ -46,7 +56,50 @@ class ModelSerializer(object):
         for field_name in self._nk_fields:
             field = self._fields[field_name]
             nk[field_name] = field.serialize(record, context)
+
+        if context.strict:
+            with context.new_entry(self._model_name) as entry_context:
+                if pk != self.deserialize_pk(nk, entry_context):
+                    raise Exception("Natural key invalid for %s:%s" % (self._model_name, pk))
+
         return nk
+
+    def deserialize(self, values, context):
+        result = {}
+        for field_name, value in values.iteritems():
+            if field_name not in self._fields:
+                if context.strict:
+                    raise Exception("Missing field %s " % field_name)
+                continue
+            field = self._fields[field_name]
+            result[field_name] = field.deserialize(values, context)
+        return result
+
+    def deserialize_pk(self, pk, context):
+        if not isinstance(pk, dict):
+            return pk
+
+        resolved = context.resolve_nk(self._model_name, pk)
+        if resolved:
+            return resolved
+
+        nk = {}
+        for field_name, value in pk.iteritems():
+            field = self._fields[field_name]
+            nk[field_name] = field.deserialize(pk, context)
+
+        lookup = [
+            (k, '=', v)
+            for (k, v) in nk.iteritems()
+        ]
+
+        records = context.env[self._model_name].search(lookup)
+        if len(records) == 0:
+            raise NaturalKeyNotFound("0 records found for model %s with lookup %s" % (self._model_name, lookup))
+        elif len(records) > 1:
+            raise NaturalKeyMultipleFound("%s records found for model %s with lookup %s" % (len(records), self._model_name, lookup))
+
+        return records[0]._ids[0]
 
     def resolve_dependencies(self, context):
         context.stack.append(self._model_name)

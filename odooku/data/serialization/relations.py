@@ -1,4 +1,4 @@
-from .base import BaseFieldSerializer
+from odooku.data.serialization.base import BaseFieldSerializer
 
 
 import logging
@@ -17,6 +17,12 @@ class RelationSerializer(BaseFieldSerializer):
     def serialize_relation(self, record, context):
         raise NotImplementedError()
 
+    def deserialize(self, values, context):
+        return self.deserialize_relation(values, context)
+
+    def deserialize_relation(self, values, context):
+        raise NotImplementedError()
+
     @classmethod
     def factory(cls, field_name, field, config=None):
         return cls(field_name, field['relation'])
@@ -25,18 +31,25 @@ class RelationSerializer(BaseFieldSerializer):
 class ManyToOneSerializer(RelationSerializer):
 
     def resolve_dependencies(self, context):
-        model_serializer = context.model_serializers[self._relation]
+        serializer = context.serializers[self._relation]
         dependencies = set([self._relation])
         if (context.stack[-1] != self._relation):
-            dependencies |= model_serializer.resolve_nk_dependencies(context)
+            dependencies |= serializer.resolve_nk_dependencies(context)
         return dependencies
 
     def serialize_relation(self, record, context):
         value = record.read([self._field_name])[0][self._field_name]
         if value:
-            model_serializer = context.model_serializers[self._relation]
+            serializer = context.serializers[self._relation]
             context.add_relation(self._relation, value[0])
-            return model_serializer.serialize_pk(value[0], context)
+            return serializer.serialize_pk(value[0], context)
+        return False
+
+    def deserialize_relation(self, values, context):
+        value = values[self._field_name]
+        if value:
+            serializer = context.serializers[self._relation]
+            return serializer.deserialize_pk(value, context)
         return False
 
 
@@ -47,8 +60,17 @@ class ManyToManySerializer(RelationSerializer):
         context.delay_field(self._field_name)
         value = record.read([self._field_name])[0][self._field_name]
         if value:
-            model_serializer = context.model_serializers[self._relation]
+            serializer = context.serializers[self._relation]
             for pk in value:
                 context.add_relation(self._relation, pk)
-                result.append(model_serializer.serialize_pk(pk, context))
+                result.append(serializer.serialize_pk(pk, context))
+        return result
+
+    def deserialize_relation(self, values, context):
+        result = []
+        value = values[self._field_name]
+        if value:
+            serializer = context.serializers[self._relation]
+            for pk in value:
+                result.append(serializer.deserialize_pk(pk, context))
         return result
