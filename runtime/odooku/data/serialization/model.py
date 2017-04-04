@@ -123,7 +123,7 @@ class ModelSerializer(object):
 
     @classmethod
     def factory(cls, model_name, model, config=None):
-        if model._abstract or model._transient:
+        if model._transient:
             raise ValueError(model)
 
         nk_fields = config and config.nk or None
