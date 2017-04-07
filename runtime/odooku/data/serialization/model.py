@@ -142,7 +142,11 @@ class ModelSerializer(object):
 
     @classmethod
     def factory(cls, model_name, model, config=None):
-        if model._abstract or model._transient:
+        if any([
+            # use getattr for Odoo 9 compatibility
+            getattr(model, attr, False)
+            for attr in ['_transient', '_abstract']
+        ]):
             raise ValueError(model)
 
         nk_fields = config and config.nk or None
