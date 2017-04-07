@@ -83,10 +83,7 @@
       ]
     },
     "product.template": {
-      "nk": [
-        "name",
-        "default_code"
-      ]
+      
     },
     "product.product": {
       "nk": [
