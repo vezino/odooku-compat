@@ -1,11 +1,12 @@
 from collections import OrderedDict
-import uuid
+import logging
 
 from odooku.data.serialization.model import ModelSerializer
 from odooku.data.pk import hash_pk
 
+model_map = {}
 
-pk_links = {}
+_logger = logging.getLogger(__name__)
 
 
 class SerializationContext(object):
@@ -58,20 +59,15 @@ class SerializationContext(object):
         clone.pk = pk
         return clone
 
-    def resolve_pk(self, model_name, pk):
-        if model_name in pk_links:
-            return pk_links[model_name].get(hash_pk(pk), None)
+    def resolve(self, model_name, a):
+        if model_name in model_map:
+            return model_map[model_name].get(hash_pk(a), None)
 
-    def link_pk(self, model_name, pk, new_pk=None):
-        if model_name not in pk_links:
-            pk_links[model_name] = {}
+    def map(self, model_name, a, b):
+        if model_name not in model_map:
+            model_map[model_name] = {}
 
-        new_pk = new_pk or pk_links[model_name].get(hash_pk(pk), None)
-        if new_pk is None:
-            new_pk = str(uuid.uuid4())
-
-        pk_links[model_name][hash_pk(pk)] = new_pk
-        return new_pk
+        model_map[model_name][hash_pk(a)] = b
 
 class DependencyContext(SerializationContext):
 

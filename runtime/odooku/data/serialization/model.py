@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import uuid
 import logging
 
 from odooku.data.serialization.fields import FieldSerializer
@@ -50,7 +51,7 @@ class ModelSerializer(object):
         return result
 
     def serialize_pk(self, pk, context):
-        resolved = context.resolve_pk(self._model_name, pk)
+        resolved = context.resolve(self._model_name, pk)
         if resolved:
             return resolved
 
@@ -58,7 +59,11 @@ class ModelSerializer(object):
             return self._serialize_pk(pk, context)
         except NaturalKeyError as ex:
             if context.link:
-                return context.link_pk(self._model_name, pk)
+                link = str(uuid.uuid4())
+                context.map(self._model_name, link, pk)
+                context.map(self._model_name, pk, link)
+                _logger.info("Link %s created for %s:%s" % (link, self._model_name, pk))
+                return link
             else:
                 raise ex
 
@@ -93,14 +98,14 @@ class ModelSerializer(object):
         return result
 
     def deserialize_pk(self, pk, context, no_lookup=False):
-        resolved = context.resolve_pk(self._model_name, pk)
+        resolved = context.resolve(self._model_name, pk)
         if resolved:
             return resolved
 
         if is_pk(pk):
             return pk
         elif is_link(pk):
-            raise LinkNotFound()
+            raise LinkNotFound("No link resolved for %s %s" % (self._model_name, pk))
 
         nk = {}
         for field_name, value in pk.iteritems():

@@ -42,12 +42,12 @@ class Importer(object):
             # Create new model
             try:
                 new_pk = model.create(values)._ids[0]
-                _logger.debug("created %s %s" % (context.model_name, new_pk))
+                _logger.info("created %s %s" % (context.model_name, new_pk))
             except:
                 _logger.warning("%s %s" % (context.model_name, values))
 
             if is_link(context.pk):
-                context.link_pk(context.model_name, context.pk, new_pk)
+                context.map(context.model_name, context.pk, new_pk)
 
             if is_nk(context.pk):
                 try:
@@ -58,12 +58,12 @@ class Importer(object):
                     try:
                         serializer.deserialize_pk(context.pk, context)
                     except NaturalKeyNotFound:
-                        _logger.warning("Natural key %s for %s:%s is no longer valid, relinking" % (context.pk, context.model_name, new_pk))
-                        context.link_pk(context.model_name, context.pk, new_pk)
+                        _logger.warning("Natural key %s for %s:%s is no longer valid, remapping" % (context.pk, context.model_name, new_pk))
+                        context.map(context.model_name, context.pk, new_pk)
         else:
             try:
                 model.browse([existing])[0].write(values)
-                _logger.debug("updated %s %s" % (context.model_name, existing))
+                _logger.info("updated %s %s" % (context.model_name, existing))
             except Exception:
                 _logger.warning("%s %s %s" % (context.model_name, existing, values))
                 raise
