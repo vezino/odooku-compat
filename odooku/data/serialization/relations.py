@@ -57,14 +57,16 @@ class ManyToManySerializer(RelationSerializer):
 
     def serialize_relation(self, record, context):
         result = []
-        context.delay_field(self._field_name)
-        value = record.read([self._field_name])[0][self._field_name]
-        if value:
-            serializer = context.serializers[self._relation]
-            for pk in value:
-                context.add_relation(self._relation, pk)
-                result.append(serializer.serialize_pk(pk, context))
-        return result
+        if context.delayed:
+            value = record.read([self._field_name])[0][self._field_name]
+            if value:
+                serializer = context.serializers[self._relation]
+                for pk in value:
+                    context.add_relation(self._relation, pk)
+                    result.append(serializer.serialize_pk(pk, context))
+            return result
+        else:
+            context.delay_field(self._field_name)
 
     def deserialize_relation(self, values, context):
         result = []

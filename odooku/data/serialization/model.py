@@ -9,7 +9,8 @@ from odooku.data.exceptions import (
     NaturalKeyNotFound,
     NaturalKeyMissing,
     NaturalKeyInvalid,
-    LinkNotFound
+    LinkNotFound,
+    ModelMissing
 )
 
 from odooku.data.serialization.relations import (
@@ -44,9 +45,10 @@ class ModelSerializer(object):
     def add_field(self, field_name, serializer):
         self._fields[field_name] = serializer
 
-    def serialize(self, record, context):
+    def serialize(self, record, context, fields=None):
         result = {}
-        for field_name, field in self._fields.iteritems():
+        for field_name in (fields or self._fields.iterkeys()):
+            field = self._fields[field_name]
             result[field_name] = field.serialize(record, context)
         return result
 
@@ -60,6 +62,8 @@ class ModelSerializer(object):
         except NaturalKeyError as ex:
             if context.link:
                 link = str(uuid.uuid4())
+                if context.model_name != self._model_name:
+                    raise ModelMissing("Can not create a link for relation %s:%s, this model is not serialized" % ( self._model_name, pk))
                 context.map(self._model_name, link, pk)
                 context.map(self._model_name, pk, link)
                 _logger.info("Link %s created for %s:%s" % (link, self._model_name, pk))
@@ -155,13 +159,16 @@ class ModelSerializer(object):
             raise ValueError(model)
 
         nk_fields = config and config.nk or None
-        if not nk_fields:
+        if nk_fields is True:
             # Attempt to find suitable fk_fields from unique constraint
             for constraint in model._sql_constraints:
                 constraint = ''.join(constraint[1].split()).lower()
                 if constraint.startswith('unique('):
                     nk_fields = constraint[len('unique('):-1].split(',')
                     break
+
+            if nk_fields is True:
+                raise Exception("Cannot resolve an automatic natural key for model %s" % model_name)
 
         serializer = cls(
             model_name,
@@ -194,6 +201,6 @@ class ModelSerializer(object):
 
                 serializer.add_field(field_name, field_serializer)
             elif config and match_any(field_name, config.includes, exact=True):
-                    _logger.warning("Field '%s' in inclusions is missing from model '%s'" % (field_name, model_name))
+                _logger.warning("Field '%s' in inclusions is missing from model '%s'" % (field_name, model_name))
 
         return serializer

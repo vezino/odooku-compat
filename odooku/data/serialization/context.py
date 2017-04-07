@@ -15,7 +15,7 @@ class SerializationContext(object):
         self.env = env
         self.strict = strict
         self.link = link
-        self._config = config
+        self.config = config
         self._serializers = None
 
     @property
@@ -25,7 +25,7 @@ class SerializationContext(object):
                 (model_name, ModelSerializer.factory(
                     model_name,
                     self.env[model_name], # use iterkeys instead of env iteritems for Odoo 9 compatibiltiy,
-                    config=self._config.models.get(model_name, None)
+                    config=self.config.models.get(model_name, None)
                 ))
                 for model_name in self.env.registry.iterkeys()
                 if not any([
@@ -39,7 +39,7 @@ class SerializationContext(object):
 
     def _clone(self, cls=None):
         cls = cls or type(self)
-        clone = cls(self.env, strict=self.strict, link=self.link, config=self._config)
+        clone = cls(self.env, strict=self.strict, link=self.link, config=self.config)
         clone._serializers = self.serializers
         return clone
 
@@ -53,10 +53,11 @@ class SerializationContext(object):
         clone.pk = pk
         return clone
 
-    def new_record(self, model_name, pk):
+    def new_record(self, model_name, pk, delayed=False):
         clone = self._clone(RecordContext)
         clone.model_name = model_name
         clone.pk = pk
+        clone.delayed = delayed
         return clone
 
     def resolve(self, model_name, a):

@@ -20,3 +20,7 @@ class NaturalKeyInvalid(NaturalKeyError):
 
 class LinkNotFound(Exception):
     pass
+
+
+class ModelMissing(Exception):
+    pass

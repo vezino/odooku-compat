@@ -10,26 +10,26 @@
     "account.invoice.line",
     "account.invoice.tax",
     "account.journal",
+    "product.template",
     "product.category",
     "product.product",
-    "product.template",
     "product.uom",
     "product.attribute",
     "product.attribute.value"
   ],
   "models": {
-    "ir.sequence": {
-      "nk": [
-        "name",
-        "code",
-        "company_id"
-      ]
+    "res.country": {
+      "nk": true
+    },
+    "res.currency": {
+      "nk": true
     },
     "res.users": {
+      "nk": [
+        "login"
+      ],
       "includes": [
-        "login",
-        "partner_id",
-        "company_id"
+        "login"
       ]
     },
     "res.company": {
@@ -82,15 +82,6 @@
         "name"
       ]
     },
-    "product.template": {
-      
-    },
-    "product.product": {
-      "nk": [
-        "product_tmpl_id",
-        "default_code"
-      ]
-    },
     "account.account": {
 
     },
@@ -100,6 +91,9 @@
         "code",
         "payment_type"
       ]
+    },
+    "account.tax": {
+      "nk": true
     },
     "account.move": {
       "nk": [
