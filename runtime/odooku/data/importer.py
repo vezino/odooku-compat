@@ -5,9 +5,12 @@ from odooku.api import environment
 from odooku.data.serialization import SerializationContext
 from odooku.data.exceptions import (
     NaturalKeyMultipleFound,
-    NaturalKeyNotFound
+    NaturalKeyNotFound,
+    NaturalKeyError,
+    LinkNotFound
 )
 
+from odooku.data.pk import is_nk, is_link
 from odooku.data.match import match, match_any
 
 
@@ -26,17 +29,27 @@ class Importer(object):
         serializer = context.serializers[context.model_name]
         values = serializer.deserialize(entry, context)
 
-        existing = False
-        if isinstance(context.pk, dict):
-            try:
-                existing = serializer.deserialize_pk(context.pk, context)
-            except (NaturalKeyNotFound):
-                pass
+        existing = None
+        try:
+            existing = serializer.deserialize_pk(context.pk, context)
+            if not model.browse([existing]).exists():
+                existing = None
+        except (LinkNotFound, NaturalKeyError):
+            pass
+
 
         if not existing:
             # Create new model
-            new_pk = model.create(values)._ids[0]
-            if isinstance(context.pk, dict):
+            try:
+                new_pk = model.create(values)._ids[0]
+                _logger.debug("created %s %s" % (context.model_name, new_pk))
+            except:
+                _logger.warning("%s %s" % (context.model_name, values))
+
+            if is_link(context.pk):
+                context.link_pk(context.model_name, context.pk, new_pk)
+
+            if is_nk(context.pk):
                 try:
                     serializer.deserialize_pk(context.pk, context)
                 except NaturalKeyNotFound:
@@ -46,9 +59,14 @@ class Importer(object):
                         serializer.deserialize_pk(context.pk, context)
                     except NaturalKeyNotFound:
                         _logger.warning("Natural key %s for %s:%s is no longer valid, relinking" % (context.pk, context.model_name, new_pk))
-                        context.relink_pk(new_pk)
+                        context.link_pk(context.model_name, context.pk, new_pk)
         else:
-            model.browse([existing])[0].write(values)
+            try:
+                model.browse([existing])[0].write(values)
+                _logger.debug("updated %s %s" % (context.model_name, existing))
+            except Exception:
+                _logger.warning("%s %s %s" % (context.model_name, existing, values))
+                raise
 
 
     def import_(self, fp, fake=False):
