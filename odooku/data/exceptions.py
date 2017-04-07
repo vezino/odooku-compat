@@ -1,10 +1,22 @@
-class NaturalKeyMultipleFound(Exception):
+class NaturalKeyError(Exception):
     pass
 
 
-class NaturalKeyNotFound(Exception):
+class NaturalKeyMultipleFound(NaturalKeyError):
     pass
 
 
-class NaturalKeyMissing(Exception):
+class NaturalKeyNotFound(NaturalKeyError):
+    pass
+
+
+class NaturalKeyMissing(NaturalKeyError):
+    pass
+
+
+class NaturalKeyInvalid(NaturalKeyError):
+    pass
+
+
+class LinkNotFound(Exception):
     pass

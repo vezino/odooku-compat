@@ -19,10 +19,14 @@ __all__ = [
     is_flag=True
 )
 @click.option(
+    '--link',
+    is_flag=True
+)
+@click.option(
     '--config-file'
 )
 @click.pass_context
-def export(ctx, db_name, strict, config_file=None):
+def export(ctx, db_name, strict, link, config_file=None):
     config = (
         ctx.obj['config']
     )
@@ -35,6 +39,7 @@ def export(ctx, db_name, strict, config_file=None):
     exporter = Exporter(
         registry,
         config=config_file and DataConfig.from_file(config_file) or DataConfig.defaults(),
+        link=link,
         strict=strict,
     )
     exporter.export(sys.stdout)

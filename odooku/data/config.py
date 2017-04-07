@@ -4,9 +4,6 @@ import json
 class DataConfig(object):
 
     def __init__(self, excludes=None, includes=None, models=None):
-        if includes and excludes:
-            raise ValueError("Define either includes or exlcudes, not both")
-
         self.excludes = excludes or []
         self.includes = includes or []
         self.models = {
@@ -32,9 +29,6 @@ class DataConfig(object):
 class ModelConfig(object):
 
     def __init__(self, excludes=None, includes=None, nk=None):
-        if includes and excludes:
-            raise ValueError("Define either includes or exlcudes, not both")
-
         self.excludes = excludes or []
         self.includes = includes or []
         self.nk = nk or []

@@ -3,9 +3,12 @@ import logging
 
 from odooku.data.serialization.fields import FieldSerializer
 from odooku.data.exceptions import (
+    NaturalKeyError,
     NaturalKeyMultipleFound,
     NaturalKeyNotFound,
-    NaturalKeyMissing
+    NaturalKeyMissing,
+    NaturalKeyInvalid,
+    LinkNotFound
 )
 
 from odooku.data.serialization.relations import (
@@ -13,6 +16,7 @@ from odooku.data.serialization.relations import (
     ManyToManySerializer
 )
 
+from odooku.data.pk import is_pk, is_nk, is_link
 from odooku.data.match import match, match_any
 
 
@@ -46,6 +50,19 @@ class ModelSerializer(object):
         return result
 
     def serialize_pk(self, pk, context):
+        resolved = context.resolve_pk(self._model_name, pk)
+        if resolved:
+            return resolved
+
+        try:
+            return self._serialize_pk(pk, context)
+        except NaturalKeyError as ex:
+            if context.link:
+                return context.link_pk(self._model_name, pk)
+            else:
+                raise ex
+
+    def _serialize_pk(self, pk, context):
         if not self._nk_fields:
             if context.strict:
                 raise NaturalKeyMissing("Did not serialize a natural key for %s:%s" % (self._model_name, pk))
@@ -60,7 +77,7 @@ class ModelSerializer(object):
         if context.strict:
             with context.new_entry(self._model_name) as entry_context:
                 if pk != self.deserialize_pk(nk, entry_context):
-                    raise Exception("Natural key invalid for %s:%s" % (self._model_name, pk))
+                    raise NaturalKeyInvalid("Natural key invalid for %s:%s" % (self._model_name, pk))
 
         return nk
 
@@ -76,12 +93,14 @@ class ModelSerializer(object):
         return result
 
     def deserialize_pk(self, pk, context, no_lookup=False):
-        if not isinstance(pk, dict):
-            return pk
-
-        resolved = context.resolve_nk(self._model_name, pk)
+        resolved = context.resolve_pk(self._model_name, pk)
         if resolved:
             return resolved
+
+        if is_pk(pk):
+            return pk
+        elif is_link(pk):
+            raise LinkNotFound()
 
         nk = {}
         for field_name, value in pk.iteritems():

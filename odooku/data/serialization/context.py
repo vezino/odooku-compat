@@ -1,22 +1,19 @@
 from collections import OrderedDict
+import uuid
 
 from odooku.data.serialization.model import ModelSerializer
+from odooku.data.pk import hash_pk
 
 
-nk_links = {}
-
-
-def hash_nk(nk):
-    return hash(tuple(sorted(
-        (k, hash_nk(v) if isinstance(v, dict) else v) for (k, v) in nk.iteritems()
-    )))
+pk_links = {}
 
 
 class SerializationContext(object):
 
-    def __init__(self, env, strict=False, config=None):
+    def __init__(self, env, strict=False, link=False, config=None):
         self.env = env
         self.strict = strict
+        self.link = link
         self._config = config
         self._serializers = None
 
@@ -30,14 +27,18 @@ class SerializationContext(object):
                     config=self._config.models.get(model_name, None)
                 ))
                 for model_name in self.env.registry.iterkeys()
-                if not (self.env[model_name]._transient or self.env[model_name]._abstract)
+                if not any([
+                    # use getattr for Odoo 9 compatibility
+                    getattr(self.env[model_name], attr, False)
+                    for attr in ['_transient', '_abstract']
+                ])
             ])
 
         return self._serializers
 
     def _clone(self, cls=None):
         cls = cls or type(self)
-        clone = cls(self.env, strict=self.strict, config=self._config)
+        clone = cls(self.env, strict=self.strict, link=self.link, config=self._config)
         clone._serializers = self.serializers
         return clone
 
@@ -56,6 +57,21 @@ class SerializationContext(object):
         clone.model_name = model_name
         clone.pk = pk
         return clone
+
+    def resolve_pk(self, model_name, pk):
+        if model_name in pk_links:
+            return pk_links[model_name].get(hash_pk(pk), None)
+
+    def link_pk(self, model_name, pk, new_pk=None):
+        if model_name not in pk_links:
+            pk_links[model_name] = {}
+
+        new_pk = new_pk or pk_links[model_name].get(hash_pk(pk), None)
+        if new_pk is None:
+            new_pk = str(uuid.uuid4())
+
+        pk_links[model_name][hash_pk(pk)] = new_pk
+        return new_pk
 
 class DependencyContext(SerializationContext):
 
@@ -93,12 +109,3 @@ class EntryContext(SerializationContext):
 
     def __exit__(self, type, value, traceback):
         pass
-
-    def relink_pk(self, pk):
-        if self.model_name not in nk_links:
-            nk_links[self.model_name] = {}
-        nk_links[self.model_name][hash_nk(self.pk)] = pk
-
-    def resolve_nk(self, model_name, nk):
-        if model_name in nk_links:
-            return nk_links[model_name].get(hash_nk(nk), None)

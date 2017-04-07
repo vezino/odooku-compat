@@ -44,7 +44,8 @@
     },
     "res.partner": {
       "nk": [
-        "name"
+        "name",
+        "parent_id"
       ],
       "includes": [
         "name",
@@ -84,9 +85,7 @@
     "product.template": {
       "nk": [
         "name",
-        "type",
-        "default_code",
-        "company_id"
+        "default_code"
       ]
     },
     "product.product": {

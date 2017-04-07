@@ -12,6 +12,7 @@ from odooku.data.exceptions import (
     NaturalKeyMissing
 )
 
+from odooku.data.pk import is_nk, is_link
 from odooku.data.match import match, match_any
 
 
@@ -20,10 +21,11 @@ _logger = logging.getLogger(__name__)
 
 class Exporter(object):
 
-    def __init__(self, registry, config, strict=False):
+    def __init__(self, registry, config, strict=False, link=False):
         self._registry = registry
         self._config = config
         self._strict = strict
+        self._link = link
 
     def _resolve_serializer_dependencies(self, model_name, context):
         # Resolve dependencies for the given model serializer
@@ -68,6 +70,7 @@ class Exporter(object):
                 context = SerializationContext(
                     env,
                     strict=self._strict,
+                    link=self._link,
                     config=self._config
                 )
 
@@ -123,8 +126,8 @@ class Exporter(object):
                             entry['__pk__'] = pk
                             entry['__model__'] = model_name
                             if delayed_entry:
-                                if pk == record_context.pk:
-                                    raise Exception("Delayed entry %s requires a valid natural key %s:%s" % (delayed_entry, model_name, pk))
+                                if not (is_nk(pk) or is_link(pk)):
+                                    raise Exception("Delayed entry %s cannot work without a natural key or link %s:%s" % (delayed_entry, model_name, pk))
                                 delayed_entry['__pk__'] = pk
                                 delayed_entry['__model__'] = model_name
                                 delayed_entries.append(delayed_entry)
