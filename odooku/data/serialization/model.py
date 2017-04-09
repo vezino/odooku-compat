@@ -18,7 +18,7 @@ from odooku.data.serialization.relations import (
     ManyToManySerializer
 )
 
-from odooku.data.pk import is_pk, is_nk, is_link
+from odooku.data.ids import is_pk, is_nk, is_link
 from odooku.data.match import match, match_any
 
 
@@ -52,41 +52,49 @@ class ModelSerializer(object):
             result[field_name] = field.serialize(record, context)
         return result
 
-    def serialize_pk(self, pk, context):
-        resolved = context.resolve(self._model_name, pk)
+    def serialize_id(self, id, context):
+        resolved = context.resolve(self._model_name, id)
         if resolved:
             return resolved
 
         try:
-            return self._serialize_pk(pk, context)
-        except NaturalKeyError as ex:
+            new_id = self._serialize_id(id, context)
+            if is_pk(new_id) and context.link:
+                return self._link_id(new_id, context)
+            else:
+                context.register_nk(self._model_name, new_id)
+            return new_id
+        except NaturalKeyMissing as ex:
             if context.link:
-                link = str(uuid.uuid4())
-                if context.model_name != self._model_name:
-                    raise ModelMissing("Can not create a link for relation %s:%s, this model is not serialized" % ( self._model_name, pk))
-                context.map(self._model_name, link, pk)
-                context.map(self._model_name, pk, link)
-                _logger.info("Link %s created for %s:%s" % (link, self._model_name, pk))
-                return link
+                return self._link_id(id, context)
             else:
                 raise ex
 
-    def _serialize_pk(self, pk, context):
+    def _link_id(self, id, context):
+        link = str(uuid.uuid4())
+        if context.model_name != self._model_name:
+            raise ModelMissing("Can not create a link for relation %s:%s, this model is not serialized" % ( self._model_name, id))
+        context.map(self._model_name, link, id)
+        context.map(self._model_name, id, link)
+        _logger.debug("Link %s created for %s:%s" % (link, self._model_name, id))
+        return link
+
+    def _serialize_id(self, id, context):
         if not self._nk_fields:
             if context.strict:
-                raise NaturalKeyMissing("Did not serialize a natural key for %s:%s" % (self._model_name, pk))
-            return pk
+                raise NaturalKeyMissing("Did not serialize a natural key for %s:%s" % (self._model_name, id))
+            return id
 
         nk = {}
-        record = context.env[self._model_name].browse([pk])[0]
+        record = context.env[self._model_name].browse([id])[0]
         for field_name in self._nk_fields:
             field = self._fields[field_name]
             nk[field_name] = field.serialize(record, context)
 
         if context.strict:
             with context.new_entry(self._model_name) as entry_context:
-                if pk != self.deserialize_pk(nk, entry_context):
-                    raise NaturalKeyInvalid("Natural key invalid for %s:%s" % (self._model_name, pk))
+                if id != self.deserialize_id(nk, entry_context):
+                    raise NaturalKeyInvalid("Natural key invalid for %s:%s" % (self._model_name, id))
 
         return nk
 
@@ -101,20 +109,20 @@ class ModelSerializer(object):
             result[field_name] = field.deserialize(values, context)
         return result
 
-    def deserialize_pk(self, pk, context, no_lookup=False):
-        resolved = context.resolve(self._model_name, pk)
+    def deserialize_id(self, id, context, no_lookup=False):
+        resolved = context.resolve(self._model_name, id)
         if resolved:
             return resolved
 
-        if is_pk(pk):
-            return pk
-        elif is_link(pk):
-            raise LinkNotFound("No link resolved for %s %s" % (self._model_name, pk))
+        if is_pk(id):
+            return id
+        elif is_link(id):
+            raise LinkNotFound("No link resolved for %s %s" % (self._model_name, id))
 
         nk = {}
-        for field_name, value in pk.iteritems():
+        for field_name, value in id.iteritems():
             field = self._fields[field_name]
-            nk[field_name] = field.deserialize(pk, context)
+            nk[field_name] = field.deserialize(id, context)
 
         if no_lookup:
             return nk
@@ -150,7 +158,7 @@ class ModelSerializer(object):
         return dependencies
 
     @classmethod
-    def factory(cls, model_name, model, config=None):
+    def factory(cls, model_name, model, config):
         if any([
             # use getattr for Odoo 9 compatibility
             getattr(model, attr, False)
@@ -158,7 +166,8 @@ class ModelSerializer(object):
         ]):
             raise ValueError(model)
 
-        nk_fields = config and config.nk or None
+        model_config = config.models.get(model_name, None)
+        nk_fields = model_config and model_config.nk or None
         if nk_fields is True:
             # Attempt to find suitable fk_fields from unique constraint
             for constraint in model._sql_constraints:
@@ -179,9 +188,9 @@ class ModelSerializer(object):
             if not field.get('store', False) or field['type'] in excluded_field_types:
                 return False
 
-            if (config and (match_any(field_name, config.excludes)
-                    or (config.includes
-                        and not match_any(field_name, config.includes)
+            if (model_config and (match_any(field_name, model_config.excludes)
+                    or (model_config.includes
+                        and not match_any(field_name, model_config.includes)
                     ))):
 
                 if field.get('required', False):
@@ -196,11 +205,14 @@ class ModelSerializer(object):
                 field_cls = field_types.get(field['type'], FieldSerializer)
                 field_serializer = field_cls.factory(
                     field_name,
-                    field
+                    field,
+                    config
                 )
+                if field_serializer:
+                    serializer.add_field(field_name, field_serializer)
+                    continue
 
-                serializer.add_field(field_name, field_serializer)
-            elif config and match_any(field_name, config.includes, exact=True):
+            if model_config and match_any(field_name, model_config.includes, exact=True):
                 _logger.warning("Field '%s' in inclusions is missing from model '%s'" % (field_name, model_name))
 
         return serializer

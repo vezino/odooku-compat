@@ -10,7 +10,7 @@ from odooku.data.exceptions import (
     LinkNotFound
 )
 
-from odooku.data.pk import is_nk, is_link
+from odooku.data.ids import is_nk, is_link
 from odooku.data.match import match, match_any
 
 
@@ -31,7 +31,7 @@ class Importer(object):
 
         existing = None
         try:
-            existing = serializer.deserialize_pk(context.pk, context)
+            existing = serializer.deserialize_id(context.id, context)
             if not model.browse([existing]).exists():
                 existing = None
         except (LinkNotFound, NaturalKeyError):
@@ -41,25 +41,26 @@ class Importer(object):
         if not existing:
             # Create new model
             try:
-                new_pk = model.create(values)._ids[0]
-                _logger.info("created %s %s" % (context.model_name, new_pk))
+                new_id = model.create(values)._ids[0]
+                _logger.info("created %s %s" % (context.model_name, new_id))
             except:
                 _logger.warning("%s %s" % (context.model_name, values))
+                raise
 
-            if is_link(context.pk):
-                context.map(context.model_name, context.pk, new_pk)
+            if is_link(context.id):
+                context.map(context.model_name, context.id, new_id)
 
-            if is_nk(context.pk):
+            if is_nk(context.id):
                 try:
-                    serializer.deserialize_pk(context.pk, context)
+                    serializer.deserialize_id(context.id, context)
                 except NaturalKeyNotFound:
-                    _logger.warning("Natural key %s for %s:%s is no longer valid, updating" % (context.pk, context.model_name, new_pk))
-                    model.browse([new_pk])[0].write(serializer.deserialize_pk(context.pk, context, no_lookup=True))
+                    _logger.warning("Natural key %s for %s:%s is no longer valid, updating" % (context.id, context.model_name, new_id))
+                    model.browse([new_id])[0].write(serializer.deserialize_id(context.id, context, no_lookup=True))
                     try:
-                        serializer.deserialize_pk(context.pk, context)
+                        serializer.deserialize_id(context.id, context)
                     except NaturalKeyNotFound:
-                        _logger.warning("Natural key %s for %s:%s is no longer valid, remapping" % (context.pk, context.model_name, new_pk))
-                        context.map(context.model_name, context.pk, new_pk)
+                        _logger.warning("Natural key %s for %s:%s is no longer valid, remapping" % (context.id, context.model_name, new_id))
+                        context.map(context.model_name, context.id, new_id)
         else:
             try:
                 model.browse([existing])[0].write(values)
@@ -81,9 +82,9 @@ class Importer(object):
                 try:
                     cr.execute('SAVEPOINT import_save')
                     for entry in ijson.items(fp, 'item'):
-                        pk = entry.pop('__pk__')
+                        id = entry.pop('__id__')
                         model_name = entry.pop('__model__')
-                        with context.new_entry(model_name, pk) as entry_context:
+                        with context.new_entry(model_name, id) as entry_context:
                             self._deserialize_entry(entry, entry_context)
                 except Exception:
                     cr.execute('ROLLBACK TO SAVEPOINT import_save')

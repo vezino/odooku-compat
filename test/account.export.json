@@ -1,21 +1,8 @@
 {
   "includes": [
-    "ir.sequence",
-    "res.company",
-    "res.partner",
-    "res.users",
     "account.account",
-    "account.payment.term",
     "account.invoice",
-    "account.invoice.line",
-    "account.invoice.tax",
-    "account.journal",
-    "product.template",
-    "product.category",
-    "product.product",
-    "product.uom",
-    "product.attribute",
-    "product.attribute.value"
+    "account.invoice.line"
   ],
   "models": {
     "res.country": {
@@ -28,107 +15,13 @@
       "nk": [
         "login"
       ],
-      "includes": [
-        "login"
+      "excludes": [
+        "user_id"
       ]
     },
     "res.company": {
       "nk": [
         "name"
-      ],
-      "includes": [
-        "name",
-        "partner_id",
-        "currency_id"
-      ]
-    },
-    "res.partner": {
-      "nk": [
-        "name",
-        "parent_id"
-      ],
-      "includes": [
-        "name",
-        "parent_id",
-        "title",
-        "lang",
-        "country_id",
-        "invoice_warn",
-        "notify_email"
-      ]
-    },
-    "product.category": {
-      "nk": [
-        "parent_id",
-        "name"
-      ],
-      "excludes": [
-        "parent_left",
-        "parent_right"
-      ]
-    },
-    "product.uom": {
-      "nk": [
-        "name"
-      ]
-    },
-    "product.uom.categ": {
-      "nk": [
-        "name"
-      ]
-    },
-    "product.attribute": {
-      "nk": [
-        "name"
-      ]
-    },
-    "account.account": {
-
-    },
-    "account.payment.method": {
-      "nk": [
-        "name",
-        "code",
-        "payment_type"
-      ]
-    },
-    "account.tax": {
-      "nk": true
-    },
-    "account.move": {
-      "nk": [
-        "name",
-        "journal_id"
-      ]
-    },
-    "account.account.type": {
-      "nk": [
-        "name",
-        "type"
-      ]
-    },
-    "account.account.tag": {
-      "nk": [
-        "name"
-      ]
-    },
-    "account.payment.term": {
-      "nk": [
-        "name"
-      ]
-    },
-    "account.invoice": {
-      "nk": [
-        "number"
-      ],
-      "excludes": [
-        "move_id"
-      ]
-    },
-    "account.invoice.line": {
-      "nk": [
-        "name",
-        "invoice_id"
       ]
     }
   }

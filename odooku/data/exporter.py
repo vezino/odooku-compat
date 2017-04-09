@@ -7,8 +7,11 @@ from odooku.api import environment
 from odooku.data.sort import topological_sort, CyclicDependencyError
 from odooku.data.serialization import SerializationContext
 
-from odooku.data.pk import is_nk, is_link
-from odooku.data.match import match, match_any
+from odooku.data.ids import is_nk, is_link
+from odooku.data.match import match_any
+from odooku.data.exceptions import (
+    NaturalKeyMissing
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -46,13 +49,13 @@ class Exporter(object):
     def _end_write(self):
         self._fp.write(']')
 
-    def _write(self, model_name, pk, values):
+    def _write(self, model_name, id, values):
         if not self._first_entry:
             self._fp.write(',')
         self._first_entry = False
         self._fp.write(json.dumps(dict({
             '__model__': model_name,
-            '__pk__' : pk
+            '__id__' : id
         }, **values), indent=2, separators=(',', ': ')))
 
     def export(self, fp):
@@ -112,39 +115,44 @@ class Exporter(object):
                         with context.new_record(model_name, record._ids[0]) as record_context:
                             serializer = context.serializers[record_context.model_name]
                             values = serializer.serialize(record, record_context)
-                            pk = serializer.serialize_pk(record_context.pk, record_context)
+
+                            try:
+                                id = serializer.serialize_id(record_context.id, record_context)
+                            except NaturalKeyMissing:
+                                id = record_context.id
 
                             # Add entry to graph
-                            g[record_context.pk] = record_context.dependencies
+                            g[record_context.id] = record_context.dependencies
 
                             # Either write directly or write later
                             if not record_context.dependencies:
-                                self._write(model_name, pk, values)
+                                self._write(model_name, id, values)
                             else:
-                                entries[record_context.pk] = (model_name, pk, values)
+                                entries[record_context.id] = (model_name, id, values)
 
                             if record_context.delayed_fields:
-                                if not (is_nk(pk) or is_link(pk)):
-                                    raise Exception("Delayed entry %s cannot work without a natural key or link %s:%s" % (delayed_entry, model_name, pk))
+                                if not (is_nk(id) or is_link(id)):
+                                    raise Exception("Delayed entry cannot work without a natural key or link %s:%s" % (model_name, id))
                                 delayed.append((model_name, record, record_context.delayed_fields))
 
                     # Sort entries
                     try:
                         entries = [
-                            entries[pk]
-                            for pk in topological_sort(g) if pk in entries
+                            entries[id]
+                            for id in topological_sort(g) if id in entries
                         ]
                     except CyclicDependencyError as ex:
                         raise ex
 
-                    for (model_name, pk, values) in entries:
-                        self._write(model_name, pk, values)
+                    for (model_name, id, values) in entries:
+                        self._write(model_name, id, values)
 
                 _logger.info("Serializing %s delayed records" % len(delayed))
                 for (model_name, record, delayed_fields) in delayed:
                     with context.new_record(model_name, record._ids[0], delayed=True) as record_context:
                         serializer = context.serializers[record_context.model_name]
                         values = serializer.serialize(record, record_context, fields=delayed_fields)
-                        pk = serializer.serialize_pk(record_context.pk, record_context)
-                        self._write(model_name, pk, values)
+                        id = serializer.serialize_id(record_context.id, record_context)
+                        self._write(model_name, id, values)
+
             self._end_write()
