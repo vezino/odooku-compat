@@ -2,7 +2,9 @@
   "includes": [
     "account.account",
     "account.invoice",
-    "account.invoice.line"
+    "account.invoice.line",
+    "res.partner",
+    "res.users"
   ],
   "models": {
     "res.country": {
@@ -14,8 +16,12 @@
     "res.users": {
       "nk": [
         "login"
-      ],
+      ]
+    },
+    "res.partner": {
       "excludes": [
+        "create_uid",
+        "write_uid",
         "user_id"
       ]
     },
