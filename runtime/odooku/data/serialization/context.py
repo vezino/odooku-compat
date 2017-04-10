@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import logging
 
+from odooku.data.serialization.base import Dependency
 from odooku.data.serialization.model import ModelSerializer
 from odooku.data.ids import hash_id
 
@@ -97,20 +98,24 @@ class RecordContext(SerializationContext):
     model_name = None
 
     def __enter__(self):
-        self.dependencies = set()
+        self.self_dependencies = set()
         self.delayed_fields = set()
         return self
 
     def __exit__(self, type, value, traceback):
-        del self.dependencies
+        del self.self_dependencies
         del self.delayed_fields
 
     def delay_field(self, field_name):
         self.delayed_fields.add(field_name)
 
-    def add_relation(self, relation, id):
-        if relation == self.model_name:
-            self.dependencies.add(id)
+    def add_dependency(self, model_name, id, field):
+        if model_name == self.model_name:
+            dependency = Dependency(id, field)
+            if id in self.self_dependencies:
+                dependency = Dependency.merge([dependency])
+            self.self_dependencies.add(dependency)
+
 
 
 class EntryContext(SerializationContext):

@@ -142,18 +142,18 @@ class ModelSerializer(object):
 
     def resolve_dependencies(self, context):
         context.stack.append(self._model_name)
-        dependencies = set()
+        dependencies = []
         for field in self._fields.itervalues():
-            dependencies |= set(field.resolve_dependencies(context))
+            dependencies += field.resolve_dependencies(context)
         context.stack.pop()
         return dependencies
 
     def resolve_nk_dependencies(self, context):
         context.stack.append(self._model_name)
-        dependencies = set()
+        dependencies = []
         for field_name in self._nk_fields:
             field = self._fields[field_name]
-            dependencies |= set(field.resolve_dependencies(context))
+            dependencies += field.resolve_dependencies(context)
         context.stack.pop()
         return dependencies
 

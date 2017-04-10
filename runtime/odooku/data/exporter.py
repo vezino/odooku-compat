@@ -5,16 +5,28 @@ import logging
 
 from odooku.api import environment
 from odooku.data.sort import topological_sort, CyclicDependencyError
-from odooku.data.serialization import SerializationContext
+from odooku.data.serialization import SerializationContext, Dependency
 
 from odooku.data.ids import is_nk, is_link
 from odooku.data.match import match_any
 from odooku.data.exceptions import (
-    NaturalKeyMissing
+    NaturalKeyMissing,
+    DependencyError
 )
 
 
 _logger = logging.getLogger(__name__)
+
+
+def _dependency_error(ex):
+    path = []
+    for node in ex.nodes:
+        if isinstance(node, Dependency) and node.fields:
+            path.append('(%s : %s)' % ('|'.join([str(field) for field in node.fields]), str(node)))
+        else:
+            path.append(str(node))
+
+    return DependencyError("Cyclic dependency detected %s" % " -> ".join(path))
 
 
 class Exporter(object):
@@ -31,7 +43,13 @@ class Exporter(object):
         serializer = context.serializers[model_name]
 
         with context.resolve_dependencies(model_name) as dependency_context:
-            dependencies = set(serializer.resolve_dependencies(dependency_context))
+            dependencies = serializer.resolve_dependencies(dependency_context)
+
+        # Compact dependencies
+        dependencies = set([
+            Dependency.merge([y for y in dependencies if x == y])
+            for x in dependencies
+        ])
 
         for dependency in list(dependencies):
             if match_any(dependency, self._config.excludes):
@@ -39,6 +57,7 @@ class Exporter(object):
 
         # Make sure there is no dependency to self, this can be handled
         dependencies.discard(model_name)
+
         return dependencies
 
     def _begin_write(self, fp):
@@ -89,11 +108,11 @@ class Exporter(object):
                 # Sort root serializers
                 try:
                     serializers = OrderedDict([
-                        (model_name, serializers[model_name])
+                        (str(model_name), serializers[str(model_name)])
                         for model_name in topological_sort(g)
                     ])
                 except CyclicDependencyError as ex:
-                    raise ex
+                    raise _dependency_error(ex)
 
 
                 delayed = []
@@ -122,10 +141,10 @@ class Exporter(object):
                                 id = record_context.id
 
                             # Add entry to graph
-                            g[record_context.id] = record_context.dependencies
+                            g[record_context.id] = record_context.self_dependencies
 
                             # Either write directly or write later
-                            if not record_context.dependencies:
+                            if not record_context.self_dependencies:
                                 self._write(model_name, id, values)
                             else:
                                 entries[record_context.id] = (model_name, id, values)
@@ -142,7 +161,7 @@ class Exporter(object):
                             for id in topological_sort(g) if id in entries
                         ]
                     except CyclicDependencyError as ex:
-                        raise ex
+                        raise _dependency_error(ex)
 
                     for (model_name, id, values) in entries:
                         self._write(model_name, id, values)
