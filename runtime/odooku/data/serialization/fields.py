@@ -13,5 +13,5 @@ class FieldSerializer(BaseFieldSerializer):
         return values[self._field_name]
 
     @classmethod
-    def factory(cls, field_name, field, config=None):
+    def factory(cls, field_name, field, config):
         return cls(field_name)

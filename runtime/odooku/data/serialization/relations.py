@@ -24,8 +24,14 @@ class RelationSerializer(BaseFieldSerializer):
         raise NotImplementedError()
 
     @classmethod
-    def factory(cls, field_name, field, config=None):
-        return cls(field_name, field['relation'])
+    def factory(cls, field_name, field, config):
+        relation = field['relation']
+        model_config = config.models.get(relation, None)
+        if model_config and model_config.nk or not(
+                    config.includes and relation not in config.includes
+                    or config.excludes and relation in config.excludes
+                ):
+            return cls(field_name, relation)
 
 
 class ManyToOneSerializer(RelationSerializer):
@@ -42,14 +48,14 @@ class ManyToOneSerializer(RelationSerializer):
         if value:
             serializer = context.serializers[self._relation]
             context.add_relation(self._relation, value[0])
-            return serializer.serialize_pk(value[0], context)
+            return serializer.serialize_id(value[0], context)
         return False
 
     def deserialize_relation(self, values, context):
         value = values[self._field_name]
         if value:
             serializer = context.serializers[self._relation]
-            return serializer.deserialize_pk(value, context)
+            return serializer.deserialize_id(value, context)
         return False
 
 
@@ -57,21 +63,23 @@ class ManyToManySerializer(RelationSerializer):
 
     def serialize_relation(self, record, context):
         result = []
-        context.delay_field(self._field_name)
-        value = record.read([self._field_name])[0][self._field_name]
-        if value:
-            serializer = context.serializers[self._relation]
-            for pk in value:
-                context.add_relation(self._relation, pk)
-                result.append(serializer.serialize_pk(pk, context))
-        return result
+        if context.delayed:
+            value = record.read([self._field_name])[0][self._field_name]
+            if value:
+                serializer = context.serializers[self._relation]
+                for id in value:
+                    context.add_relation(self._relation, id)
+                    result.append(serializer.serialize_id(id, context))
+            return result
+        else:
+            context.delay_field(self._field_name)
 
     def deserialize_relation(self, values, context):
         result = []
         value = values[self._field_name]
         if value:
             serializer = context.serializers[self._relation]
-            for pk in value:
-                result.append(serializer.deserialize_pk(pk, context))
+            for id in value:
+                result.append(serializer.deserialize_id(id, context))
 
         return [(6, 0, result)]

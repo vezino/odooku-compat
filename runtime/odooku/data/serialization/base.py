@@ -10,5 +10,5 @@ class BaseFieldSerializer(object):
         return []
 
     @classmethod
-    def factory(cls, field_name, field, config=None):
+    def factory(cls, field_name, field, config):
         raise NotImplementedError()
