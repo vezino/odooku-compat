@@ -25,7 +25,7 @@ class Importer(object):
         self._strict = strict
 
     def _deserialize_entry(self, entry, context):
-        model = context.env[context.model_name]
+        model = context.env[context.model_name].with_context(active_test=False)
         serializer = context.serializers[context.model_name]
         values = serializer.deserialize(entry, context)
 
