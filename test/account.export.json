@@ -16,10 +16,16 @@
     "res.users": {
       "nk": [
         "login"
+      ],
+      "excludes": [
+        "create_uid",
+        "write_uid",
+        "user_id"
       ]
     },
     "res.partner": {
       "excludes": [
+        "commercial_partner_id",
         "create_uid",
         "write_uid",
         "user_id"

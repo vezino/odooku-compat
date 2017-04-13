@@ -2,7 +2,7 @@ import ijson
 import logging
 
 from odooku.api import environment
-from odooku.data.serialization import SerializationContext
+from odooku.data.serialization.context import SerializationContext
 from odooku.data.exceptions import (
     NaturalKeyMultipleFound,
     NaturalKeyNotFound,

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import logging
 
-from odooku.data.serialization.base import Dependency
+from odooku.data.serialization.dependency import Dependency
 from odooku.data.serialization.model import ModelSerializer
 from odooku.data.ids import hash_id
 
@@ -24,7 +24,7 @@ class SerializationContext(object):
     def serializers(self):
         if self._serializers is None:
             self._serializers = OrderedDict([
-                (model_name, ModelSerializer.factory(
+                (model_name, ModelSerializer.parse(
                     model_name,
                     self.env[model_name], # use iterkeys instead of env iteritems for Odoo 9 compatibiltiy,
                     config=self.config
@@ -56,10 +56,6 @@ class SerializationContext(object):
                 _logger.info("Natural key %s for model %s required on import" % (nk, model_name))
                 missing_nks[model_name].append(nk)
 
-    def resolve_dependencies(self, model_name):
-        clone = self._clone(DependencyContext)
-        return clone
-
     def new_entry(self, model_name, id=None):
         clone = self._clone(EntryContext)
         clone.model_name = model_name
@@ -82,15 +78,6 @@ class SerializationContext(object):
             model_map[model_name] = {}
 
         model_map[model_name][hash_id(a)] = b
-
-class DependencyContext(SerializationContext):
-
-    def __enter__(self):
-        self.stack = list()
-        return self
-
-    def __exit__(self, type, value, traceback):
-        del self.stack
 
 
 class RecordContext(SerializationContext):
