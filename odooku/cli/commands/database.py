@@ -167,7 +167,7 @@ def restore(ctx, db_name, copy, s3_file):
             restore_db(
                 db_name,
                 t.name,
-                copy=copy,
+                copy=copy
             )
 
         os.unlink(t.name)

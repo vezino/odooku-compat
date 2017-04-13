@@ -84,13 +84,13 @@ class patch_restore_db(SoftPatch):
 
         from odoo import api, models, SUPERUSER_ID
 
-        def restore_db(db_name, dump_file, copy=False, truncate=False, update=False, skip_pg=False, skip_filestore=False):
-            assert isinstance(db, basestring)
-            if exp_db_exist(db):
-                _logger.info('RESTORE DB: %s already exists', db)
+        def restore_db(db_name, dump_file, copy=False):
+            assert isinstance(db_name, basestring)
+            if exp_db_exist(db_name):
+                _logger.info('RESTORE DB: %s already exists', db_name)
                 raise Exception("Database already exists")
 
-            _create_empty_database(db)
+            _create_empty_database(db_name)
 
             filestore_path = None
             with odoo.tools.osutil.tempdir() as dump_dir:
@@ -116,23 +116,24 @@ class patch_restore_db(SoftPatch):
                 args.append('--dbname=' + db_name)
                 pg_args = args + pg_args
 
-                if not skip_pg and odoo.tools.exec_pg_command(pg_cmd, *pg_args):
+                if odoo.tools.exec_pg_command(pg_cmd, *pg_args):
                     raise Exception("Couldn't restore database")
 
-                registry = odoo.modules.registry.RegistryManager.new(db_name, update_module=update)
+                registry = odoo.modules.registry.Registry.new(db_name)
                 with registry.cursor() as cr:
+                    env = odoo.api.Environment(cr, SUPERUSER_ID, {})
                     if copy:
                         # if it's a copy of a database, force generation of a new dbuuid
-                        registry['ir.config_parameter'].init(cr, force=True)
-                    if not skip_filestore and filestore_path:
+                        env['ir.config_parameter'].init(force=True)
+                    if filestore_path:
                         # PATCH !!
                         # Instead of copying the filestore directory, read
                         # all attachments from filestore/s3-bucket.
-                        attachment = registry['ir.attachment']
+                        attachment = env['ir.attachment']
                         # For some reason we can't search installed attachments...
                         cr.execute("SELECT id FROM ir_attachment")
                         for id in [rec['id'] for rec in cr.dictfetchall()]:
-                            rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
+                            rec = attachment.browse([id])[0]
                             if rec.store_fname:
                                 full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
                                 if os.path.exists(full_path):
