@@ -32,9 +32,9 @@ def export(ctx, db_name, strict, link, config_file=None):
     from openerp.modules.registry import RegistryManager
     registry = RegistryManager.get(db_name)
 
-    from odooku.data.exporter import Exporter
+    from odooku.data.exporter import factory
     from odooku.data.config import DataConfig
-    exporter = Exporter(
+    exporter = factory()(
         registry,
         config=config_file and DataConfig.from_file(config_file) or DataConfig.defaults(),
         link=link,

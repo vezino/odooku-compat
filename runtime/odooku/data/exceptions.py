@@ -24,7 +24,3 @@ class LinkNotFound(Exception):
 
 class ModelMissing(Exception):
     pass
-
-
-class DependencyError(Exception):
-    pass

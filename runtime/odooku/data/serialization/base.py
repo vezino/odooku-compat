@@ -1,7 +1,8 @@
-import itertools
-
-
 class BaseFieldSerializer(object):
+
+    def __init__(self, field_name, required=False):
+        self.field_name = field_name
+        self.required = required
 
     def serialize(self, record, context):
         raise NotImplementedError()
@@ -9,31 +10,9 @@ class BaseFieldSerializer(object):
     def deserialize(self, record, context):
         raise NotImplementedError()
 
-    def resolve_dependencies(self, context):
-        return []
-
     @classmethod
-    def factory(cls, field_name, field, config):
-        raise NotImplementedError()
-
-
-class Dependency(object):
-
-    def __init__(self, value, *fields):
-        self.value = value
-        self.fields = fields
-
-    def __hash__(self):
-        return hash(self.value)
-
-    def __eq__(self, other):
-        return other == self.value
+    def parse(cls, field_name, field, config):
+        return cls(field_name, field['required'])
 
     def __repr__(self):
-        return str(self.value)
-
-    @classmethod
-    def merge(cls, dependencies):
-        return cls(dependencies[0].value, *list(itertools.chain(*[
-            dependency.fields for dependency in dependencies
-        ])))
+        return self.field_name
