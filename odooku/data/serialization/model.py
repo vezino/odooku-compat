@@ -129,7 +129,8 @@ class ModelSerializer(object):
             for (k, v) in nk.iteritems()
         ]
 
-        records = context.env[self.model_name].search(lookup)
+        model = context.env[self.model_name].with_context(active_test=False)
+        records = model.search(lookup)
         if len(records) == 0:
             raise NaturalKeyNotFound("0 records found for model %s with lookup %s" % (self.model_name, lookup))
         elif len(records) > 1:

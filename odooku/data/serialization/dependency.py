@@ -2,7 +2,7 @@ from collections import OrderedDict
 import itertools
 import logging
 
-from odooku.data.serialization.relations import RelationSerializer
+from odooku.data.serialization.relations import ManyToOneSerializer
 
 
 _logger = logging.getLogger(__name__)
@@ -104,23 +104,28 @@ class DependencyGraph(OrderedDict):
     def from_models(cls, models, serializers):
         g = cls()
 
-        def find_dependencies(serializer, nk=False, dependencies=None):
-            dependencies = dependencies or []
+        def find_dependencies(serializer, nk=False, result=None):
+            if result is None:
+                result = {}
+
             fields = nk and serializer.nk or serializer.fields.iterkeys()
             for field_name in fields:
                 field = serializer.fields[field_name]
-                if isinstance(field, RelationSerializer):
-                    relation = serializers[field.relation]
-                    if relation != serializer and field.relation not in dependencies:
-                        dependencies.append(Dependency(field.relation, field))
-                        find_dependencies(relation, nk=True, dependencies=dependencies)
-            return dependencies
+                if isinstance(field, ManyToOneSerializer):
+                    if field.relation == serializer.model_name:
+                        continue
+
+                    relation_serializer = serializers[field.relation]
+                    dependency = Dependency(field.relation, field)
+                    if dependency in result:
+                        dependency = Dependency.merge([dependency, result[dependency]])
+                    result[dependency] = dependency
+                    if field.relation not in result:
+                        find_dependencies(relation_serializer, nk=True, result=result)
+
+            return list(result.itervalues())
 
         for model_name in models:
-            dependencies = find_dependencies(serializers[model_name])
-            g[model_name] = set([
-                Dependency.merge([y for y in dependencies if x == y])
-                for x in dependencies
-            ])
+            g[model_name] = find_dependencies(serializers[model_name])
 
         return g

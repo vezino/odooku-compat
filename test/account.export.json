@@ -4,7 +4,9 @@
     "account.invoice",
     "account.invoice.line",
     "res.partner",
-    "res.users"
+    "res.users",
+    "project.task",
+    "project.project"
   ],
   "models": {
     "res.country": {
