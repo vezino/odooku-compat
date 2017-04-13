@@ -77,6 +77,85 @@ class patch_dump_db(SoftPatch):
         return dict(dump_db=dump_db)
 
 
+class patch_restore_db(SoftPatch):
+
+    @staticmethod
+    def apply_patch():
+
+        from odoo import api, models, SUPERUSER_ID
+
+        def restore_db(db_name, dump_file, copy=False, truncate=False, update=False, skip_pg=False, skip_filestore=False):
+            assert isinstance(db_name, basestring)
+
+            dbs = odoo.tools.config.get('db_name', '').split(',')
+
+            if not db_name in dbs:
+                # Running in regular db mode
+                if exp_db_exist(db_name):
+                    _logger.info('RESTORE DB: %s already exists', db_name)
+                    raise Exception("Database already exists")
+
+                _create_empty_database(db_name)
+
+            filestore_path = None
+            with odoo.tools.osutil.tempdir() as dump_dir:
+                if zipfile.is_zipfile(dump_file):
+                    # v8 format
+                    with zipfile.ZipFile(dump_file, 'r') as z:
+                        # only extract known members!
+                        filestore = [m for m in z.namelist() if m.startswith('filestore/')]
+                        z.extractall(dump_dir, ['dump.sql'] + filestore)
+
+                        if filestore:
+                            filestore_path = os.path.join(dump_dir, 'filestore')
+
+                    pg_cmd = 'psql'
+                    pg_args = ['-q', '-f', os.path.join(dump_dir, 'dump.sql')]
+
+                else:
+                    # <= 7.0 format (raw pg_dump output)
+                    pg_cmd = 'pg_restore'
+                    pg_args = ['--no-owner', dump_file]
+
+                args = []
+                args.append('--dbname=' + db_name)
+                pg_args = args + pg_args
+
+                if not skip_pg and odoo.tools.exec_pg_command(pg_cmd, *pg_args):
+                    raise Exception("Couldn't restore database")
+
+                registry = odoo.modules.registry.RegistryManager.new(db_name, update_module=update)
+                with registry.cursor() as cr:
+                    if copy:
+                        # if it's a copy of a database, force generation of a new dbuuid
+                        registry['ir.config_parameter'].init(cr, force=True)
+                    if not skip_filestore and filestore_path:
+                        # PATCH !!
+                        # Instead of copying the filestore directory, read
+                        # all attachments from filestore/s3-bucket.
+                        attachment = registry['ir.attachment']
+                        # For some reason we can't search installed attachments...
+                        cr.execute("SELECT id FROM ir_attachment")
+                        for id in [rec['id'] for rec in cr.dictfetchall()]:
+                            rec = attachment.browse(cr, SUPERUSER_ID, [id], {})[0]
+                            if rec.store_fname:
+                                full_path = os.path.join(dump_dir, 'filestore', rec.store_fname)
+                                if os.path.exists(full_path):
+                                    value = open(full_path,'rb').read()
+                                    rec.write({'datas': value, 'mimetype': rec.mimetype})
+
+                    if odoo.tools.config['unaccent']:
+                        try:
+                            with cr.savepoint():
+                                cr.execute("CREATE EXTENSION unaccent")
+                        except psycopg2.Error:
+                            pass
+
+            _logger.info('RESTORE DB: %s', db_name)
+
+        return dict(restore_db=restore_db)
+
+
 class patch_exp_change_admin_password(SoftPatch):
 
     @staticmethod
@@ -186,6 +265,7 @@ class patch_base_sql(SoftPatch):
 
 patch_check_super('odoo.service.db')
 patch_dump_db('odoo.service.db')
+patch_restore_db('odoo.service.db')
 patch_exp_change_admin_password('odoo.service.db')
 patch_list_dbs('odoo.service.db')
 patch_base_sql('odoo.modules.db')
