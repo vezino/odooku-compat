@@ -85,17 +85,12 @@ class patch_restore_db(SoftPatch):
         from odoo import api, models, SUPERUSER_ID
 
         def restore_db(db_name, dump_file, copy=False, truncate=False, update=False, skip_pg=False, skip_filestore=False):
-            assert isinstance(db_name, basestring)
+            assert isinstance(db, basestring)
+            if exp_db_exist(db):
+                _logger.info('RESTORE DB: %s already exists', db)
+                raise Exception("Database already exists")
 
-            dbs = odoo.tools.config.get('db_name', '').split(',')
-
-            if not db_name in dbs:
-                # Running in regular db mode
-                if exp_db_exist(db_name):
-                    _logger.info('RESTORE DB: %s already exists', db_name)
-                    raise Exception("Database already exists")
-
-                _create_empty_database(db_name)
+            _create_empty_database(db)
 
             filestore_path = None
             with odoo.tools.osutil.tempdir() as dump_dir:
